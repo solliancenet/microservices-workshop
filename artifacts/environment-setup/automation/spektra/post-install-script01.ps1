@@ -315,8 +315,8 @@ $subscriptionId = (Get-AzContext).Subscription.Id
 $tenantId = (Get-AzContext).Tenant.Id
 $global:logindomain = (Get-AzContext).Tenant.Id;
 
-$appId = $(az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/$subscriptionId" --name="http://Fabmedical-sp-$deploymentId").AppId;
-$objectId = $(az ad sp show --id $appId --query "{objectId:@.objectId}")
+$appId = ((az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/$subscriptionId" --name="http://Fabmedical-sp-$deploymentId") | ConvertFrom-Json).AppId;
+$objectId = ((az ad sp show --id $appId --query "{objectId:@.objectId}") | ConvertFrom-Json)
 
 $TemplatesPath = "c:\labfiles\microservices-workshop\artifacts\environment-setup\automation\templates"
 $templateFile = "c:\labfiles\microservices-workshop\artifacts\environment-setup\automation\00-core.json";
@@ -389,7 +389,7 @@ git init
 git add .
 git commit -m "Initial Commit"
 
-git remote add origin https://fabmedical-$deploymentId@dev.azure.com/fabmedical-$deploymentId/ProjectName/_git/content-web
+git remote add origin https://fabmedical-$deploymentId@dev.azure.com/fabmedical-$deploymentId/$ProjectName/_git/content-web
 git push -u origin --all
 
 cd ../content-api
@@ -402,54 +402,46 @@ git init
 git add .
 git commit -m "Initial Commit"
 
-$ip = $(az vm show -d -g fabmedical-$deploymentId -n fabmedical-$deploymentId --query publicIps -o tsv)
+$ip = ((az vm show -d -g fabmedical-$deploymentId -n fabmedical-$deploymentId --query publicIps -o tsv) | ConvertFrom-Json).PublicIps[0];
+
+#create a script...
+$break = "`r`n";
+$script = "sudo apt-get update && sudo apt install apt-transport-https ca-certificates curl software-properties-common" + $break;
+$script += "sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -" + $break;
+$script += "sudo add-apt-repository `"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable`"" + $break;
+$script += "sudo apt-get install curl python-software-properties" + $break;
+$script += "sudo curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -" + $break;
+$script += "sudo apt-get update && sudo apt-get install -y docker-ce nodejs mongodb-clients" + $break;
+$script += "sudo apt-get upgrade" + $break;
+$script += "sudo curl -L https://github.com/docker/compose/releases/download/1.21.2/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose" + $break;
+$script += "sudo chmod +x /usr/local/bin/docker-compose" + $break;
+$script += "sudo npm install -g @angular/cli" + $break;
+
+$script += "git config --global user.email $AzureUserName" + $break;
+$script += "git config --global user.name `"Spektra User`"" + $break;
+$script += "git config --global credential.helper cache" + $break;
+
+$script += "sudo chown -R `$USER:$(id -gn `$USER) /home/adminfabmedical/.config" + $break;
+
+$repos = GetRepos $orgName $projectName;
+
+foreach($repon in $repos)
+{
+  $url = $repo.urls[0];
+
+  #get repo url from devops...content-web/api/init
+  $script += "git clone https://$($azureusername):$($azurepassword)@github.com/username/content-web.git" + $break;
+  $script += "sudo chown -R `$USER:$(id -gn `$USER) /home/adminfabmedical/.config" + $break;
+}
 
 #connect to the VM and run the following...
-ssh -i .ssh/fabmedical adminfabmedical@$ip
+#ssh -i .ssh/fabmedical adminfabmedical@$ip
 
-sudo apt-get update && sudo apt install apt-transport-https ca-certificates curl software-properties-common
+set-content "c:\labfiles\setup.sh" $script;
 
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-
-sudo apt-get install curl python-software-properties
-
-curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
-
-sudo apt-get update && sudo apt-get install -y docker-ce nodejs mongodb-clients
-
-sudo apt-get upgrade
-
-sudo curl -L https://github.com/docker/compose/releases/download/1.21.2/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
-
-sudo chmod +x /usr/local/bin/docker-compose
-
-sudo npm install -g @angular/cli
-
-git config --global user.email $AzureUserName
-git config --global user.name "Spektra User"
-
-sudo chown -R $USER:$(id -gn $USER) /home/adminfabmedical/.config
-
-git config --global credential.helper cache
-
-sudo chown -R $USER:$(id -gn $USER) /home/adminfabmedical/.config
-
-#get repo url from devops...content-web
-git clone <REPOSITORY_URL>
-
-sudo chown -R $USER:$(id -gn $USER) /home/adminfabmedical/.config
-
-#get repo url from devops...content-api
-git clone <REPOSITORY_URL>
-
-sudo chown -R $USER:$(id -gn $USER) /home/adminfabmedical/.config
-
-#get repo url from devops...content-init
-git clone <REPOSITORY_URL>
-
-sudo chown -R $USER:$(id -gn $USER) /home/adminfabmedical/.config
+#execute the script...
+putty.exe -ssh adminfabmedical@$ip -pw $azurePassword -m "C:\labfiles\setup.sh"
 
 sleep 20
+
 Stop-Transcript
