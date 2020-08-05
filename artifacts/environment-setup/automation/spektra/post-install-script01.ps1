@@ -62,8 +62,8 @@ function Refresh-Token {
               -Method POST -Body $global:ropcBodyPowerBI -ContentType "application/x-www-form-urlencoded"
           $global:powerbitoken = $result.access_token
       } elseif ($TokenType -eq "DevOps") {
-        $result = Invoke-RestMethod  -Uri "https://login.microsoftonline.com/$($global:logindomain)/oauth2/v2.0/token" `
-            -Method POST -Body $global:ropcBodyDevOps -ContentType "application/x-www-form-urlencoded"
+        #$result = Invoke-RestMethod  -Uri "https://app.vssps.visualstudio.com/oauth2/token" -Method POST -Body $global:ropcBodyDevOps -ContentType "application/x-www-form-urlencoded"
+        $result = Invoke-RestMethod  -Uri "https://login.microsoftonline.com/$($global:logindomain)/oauth2/v2.0/token" -Method POST -Body $global:ropcBodyDevOps -ContentType "application/x-www-form-urlencoded"
         $global:devopstoken = $result.access_token
     }
       else {
@@ -92,7 +92,7 @@ function Refresh-Token {
               break;
           }
           "DevOps" {
-            $tokenValue = ((az account get-access-token --resource https://dev.azure.com) | ConvertFrom-Json).accessToken
+            $tokenValue = ((az account get-access-token --resource https://app.vssps.visualstudio.com) | ConvertFrom-Json).accessToken
             $global:devopstoken = $tokenValue; 
             break;
         }
@@ -126,26 +126,52 @@ function Ensure-ValidToken {
   #Refresh-Token;
 }
 
-function CreateDevOpsRepos($organization, $name, $repoName)
+function CreateDevOpsRepos($organization, $projectName, $repoName)
 {
-    $uri = "https://dev.azure.com/$organization/$project/_apis/git/repositories?api-version=5.1"
+    $uri = "https://dev.azure.com/$organization/$projectName/_apis/git/repositories?api-version=5.1"
 
     $item = Get-Content -Raw -Path "$($TemplatesPath)/repo.json"
-    $item = $item.Replace("#REPO_NAME#", $repoName);
+    $item = $item.Replace("#NAME#", $repoName);
     $jsonItem = ConvertFrom-Json $item
     $item = ConvertTo-Json $jsonItem -Depth 100
 
     Ensure-ValidTokens;
-    $result = Invoke-RestMethod  -Uri $uri -Method Post -Body $item -Headers @{ Authorization="Bearer $global:devopsToken" } -ContentType "application/json"
+
+    $azuredevopsLogin = "$($azureusername):$($azurepassword)";
+    $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($azuredevopsLogin)")) }
+
+    if ($global:pat)
+    {
+        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($global:pat)")) }
+    }
+    else
+    {
+        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Bearer ' + $global:devopsToken }
+    }
+
+    $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $item -Headers $AzureDevOpsAuthenicationHeader -ContentType "application/json";
     return $result;
 }
 
-function GetDevOpsRepos($organization, $name)
+function GetDevOpsRepos($organization, $projectName)
 {
-    $uri = "https://dev.azure.com/$organization/$project/_apis/git/repositories?api-version=5.1"
+    $uri = "https://dev.azure.com/$organization/$projectName/_apis/git/repositories?api-version=5.1"
     Ensure-ValidTokens;
-    $result = Invoke-RestMethod  -Uri $uri -Method GET -Headers @{ Authorization="Bearer $global:devopsToken" } -ContentType "application/json"
-    return $result;
+    
+    $azuredevopsLogin = "$($azureusername):$($azurepassword)";
+    $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($azuredevopsLogin)")) }
+
+    if ($global:pat)
+    {
+        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($global:pat)")) }
+    }
+    else
+    {
+        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Bearer ' + $global:devopsToken }
+    }
+
+    $result = Invoke-RestMethod  -Uri $uri -Method GET -Headers $AzureDevOpsAuthenicationHeader -ContentType "application/json";
+    return $result.value;
 }
 
 function CreateDevOpsProject($organization, $name)
@@ -160,17 +186,41 @@ function CreateDevOpsProject($organization, $name)
 
     Ensure-ValidTokens;
 
-    $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $item -Headers @{ Authorization="Bearer $global:devopsToken" } -ContentType "application/json"
+    $azuredevopsLogin = "$($azureusername):$($azurepassword)";
+    $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($azuredevopsLogin)")) }
+
+    if ($global:pat)
+    {
+        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($global:pat)")) }
+    }
+    else
+    {
+        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Bearer ' + $global:devopsToken }
+    }
+
+    $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $item -Headers $AzureDevOpsAuthenicationHeader -ContentType "application/json";
 }
 
 #https://borzenin.no/create-service-connection/
-function CreateARMServiceConnection($organization, $name, $template, $spnId, $spnSecret, $tenantId, $subscriptionId, $subscriptionName, $projectName)
+function CreateARMServiceConnection($organization, $name, $item, $spnId, $spnSecret, $tenantId, $subscriptionId, $subscriptionName, $projectName)
 {
-    $uri = " https://dev.azure.com/$organization/$project/_apis/serviceendpoint/endpoints?api-version=5.1-preview.2";
+    $uri = " https://dev.azure.com/$organization/$projectName/_apis/serviceendpoint/endpoints?api-version=5.1-preview";
 
     Ensure-ValidTokens;
 
-    $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $template -Headers @{ Authorization="Bearer $global:devopsToken" } -ContentType "application/json"
+    $azuredevopsLogin = "$($azureusername):$($azurepassword)";
+    $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($azuredevopsLogin)")) }
+
+    if ($global:pat)
+    {
+        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($global:pat)")) }
+    }
+    else
+    {
+        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Bearer ' + $global:devopsToken }
+    }
+
+    $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $item -Headers $AzureDevOpsAuthenicationHeader -ContentType "application/json";
 }
 
 function InstallNotepadPP()
@@ -256,7 +306,14 @@ function CreateCredFile($azureUsername, $azurePassword, $azureTenantID, $azureSu
   Copy-Item "C:\LabFiles\AzureCreds.txt" -Destination "C:\Users\Public\Desktop"
 }
 
-Start-Transcript -Path C:\WindowsAzure\Logs\CloudLabsCustomScriptExtension.txt -Append
+Start-Transcript -Path C:\WindowsAzure\Logs\CloudLabsCustomScriptExtension.txt -Append;
+
+$azureUsername = "odl_user_210811@solliancelabs.onmicrosoft.com";
+$azurePassword = "nbkb01COE*Og";
+$azureTenantID = "3a4b264d-17b4-4abb-98bd-0728f39406fb";
+$azureSubscriptionID = "3d9a526d-603a-4b1f-a750-13344d2e7161";
+$odlId = "7981";
+$deploymentId = "210811";
 
 [Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls" 
@@ -264,12 +321,6 @@ Start-Transcript -Path C:\WindowsAzure\Logs\CloudLabsCustomScriptExtension.txt -
 DisableInternetExplorerESC
 
 EnableIEFileDownload
-
-InstallAzPowerShellModule
-
-InstallPutty
-
-InstallNotepadPP
 
 CreateLabFilesDirectory
 
@@ -288,20 +339,6 @@ $securePassword = $password | ConvertTo-SecureString -AsPlainText -Force
 $cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $userName, $SecurePassword
 
 Connect-AzAccount -Credential $cred | Out-Null
- 
-#download and install git...		
-$output = "c:\LabFiles\git.exe";
-Invoke-WebRequest -Uri https://github.com/git-for-windows/git/releases/download/v2.27.0.windows.1/Git-2.27.0-64-bit.exe -OutFile $output; 
-
-$productPath = "c:\LabFiles";				
-$productExec = "git.exe"	
-$argList = "/SILENT"
-start-process "$productPath\$productExec" -ArgumentList $argList -wait
-        
-#install azure cli
-Invoke-WebRequest -Uri https://aka.ms/installazurecliwindows -OutFile .\AzureCLI.msi; 
-Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'; 
-rm .\AzureCLI.msi
 
 #install sql server cmdlets
 Install-Module -Name SqlServer
@@ -316,7 +353,7 @@ $global:ropcBodySynapse = "$($ropcBodyCore)&scope=https://dev.azuresynapse.net/.
 $global:ropcBodyManagement = "$($ropcBodyCore)&scope=https://management.azure.com/.default"
 $global:ropcBodySynapseSQL = "$($ropcBodyCore)&scope=https://sql.azuresynapse.net/.default"
 $global:ropcBodyPowerBI = "$($ropcBodyCore)&scope=https://analysis.windows.net/powerbi/api/.default"
-$global:ropcBodyDevOps = "$($ropcBodyCore)&scope=https://dev.azure.com/.default"
+$global:ropcBodyDevOps = "$($ropcBodyCore)&scope=https://app.vssps.visualstudio.com/.default"
 
 Uninstall-AzureRm
 
@@ -324,37 +361,65 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
 
 git clone https://github.com/solliancenet/microservices-workshop.git
 
-remove-item microservices-workshop/.git -Recurse -force
-mkdir .ssh
-ssh-keygen -t RSA -b 2048 -C admin@fabmedical
-cat .ssh/fabmedical.pub
+remove-item microservices-workshop/.git -Recurse -force -ea SilentlyContinue
+
+$publicKey = get-content "./.ssh/fabmedical.pub" -ea SilentlyContinue;
+
+if (!$publicKey)
+{
+    mkdir .ssh -ea SilentlyContinue
+    ssh-keygen -t RSA -b 2048 -C admin@fabmedical -q -N $azurePassword -f "./.ssh/fabmedical"
+    $publicKey = get-content "./.ssh/fabmedical.pub"
+}
 
 $uniqueId =  (Get-AzResourceGroup -Name $resourceGroupName).Tags["DeploymentId"]
 $subscriptionId = (Get-AzContext).Subscription.Id
+$subscriptionName = (Get-AzContext).Subscription.Name
 $tenantId = (Get-AzContext).Tenant.Id
 $global:logindomain = (Get-AzContext).Tenant.Id;
 
-$appId = ((az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/$subscriptionId" --name="http://Fabmedical-sp-$deploymentId") | ConvertFrom-Json).AppId;
-$objectId = ((az ad sp show --id $appId --query "{objectId:@.objectId}") | ConvertFrom-Json)
+$app = Get-AzADApplication -DisplayName "Fabmedical App $deploymentid"
+
+if (!$app)
+{
+    $secret = ConvertTo-SecureString -String $azurePassword -AsPlainText -Force
+    $app = New-AzADApplication -DisplayName "Fabmedical App $deploymentId" -IdentifierUris "http://fabmedical-sp-$deploymentId" -Password $secret;
+}
+
+$appId = $app.ApplicationId;
+$objectId = $app.ObjectId;
+
+$sp = Get-AzADServicePrincipal -ApplicationId $appId;
+
+if (!$sp)
+{
+    $sp = New-AzADServicePrincipal -ApplicationId $appId -DisplayName "http://fabmedical-sp-$deploymentId" -Scope "/subscriptions/$subscriptionId" -Role "Contributor";
+}
+
+$objectId = $sp.Id;
+$orgName = "fabmedical-$deploymentId";
 
 $TemplatesPath = "c:\labfiles\microservices-workshop\artifacts\environment-setup\automation\templates"
 $templateFile = "c:\labfiles\microservices-workshop\artifacts\environment-setup\automation\00-core.json";
 $parametersFile = "c:\labfiles\microservices-workshop\artifacts\environment-setup\automation\spektra\deploy.parameters.post.json";
-$content = Get-Content -Path $parametersFile;
+$content = Get-Content -Path $parametersFile -raw;
+
+$content = $content.Replace("GET-AZUSER-PASSWORD",$azurepassword);
+
 $content = $content | ForEach-Object {$_ -Replace "GET-AZUSER-PASSWORD", "$AzurePassword"};
-$content = $content | ForEach-Object {$_ -Replace "GET-DEPLOYMENT-ID", "$AzurePassword"};
+$content = $content | ForEach-Object {$_ -Replace "GET-DEPLOYMENT-ID", "$deploymentId"};
 $content = $content | ForEach-Object {$_ -Replace "#GET-REGION#", "$($rg.location)"};
 $content = $content | ForEach-Object {$_ -Replace "#GET-REGION-PAIR#", "$($rg.location)"};
-$content = $content | ForEach-Object {$_ -Replace "#ORG_NAME#", "$AzurePassword"};
-$content = $content | ForEach-Object {$_ -Replace "#SSH_KEY#", "$AzurePassword"};
+$content = $content | ForEach-Object {$_ -Replace "#ORG_NAME#", "$deploymentId"};
+$content = $content | ForEach-Object {$_ -Replace "#SSH_KEY#", "$publicKey"};
 $content = $content | ForEach-Object {$_ -Replace "#CLIENT_ID#", "$appId"};
 $content = $content | ForEach-Object {$_ -Replace "#CLIENT_SECRET#", "$AzurePassword"};
-$content = $content | ForEach-Object {$_ -Replace "#OBEJCT_ID#", "$objectId"};
-Set-Content -Path $parametersFile;
+$content = $content | ForEach-Object {$_ -Replace "#OBJECT_ID#", "$objectId"};
+$content | Set-Content -Path "$($parametersFile).json";
 
 New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName `
   -TemplateFile $templateFile `
-  -TemplateParameterFile $parametersFile
+  -TemplateParameterFile "$($parametersFile).json"
 
 $global:synapseToken = ""
 $global:synapseSQLToken = ""
@@ -374,69 +439,67 @@ git config --global user.email $AzureUserName
 git config --global user.name "Spektra User"
 git config --global credential.helper cache
 
+$global:pat = "m73ng3qsyln4zlya3btebvuwaoempnazqofvommqvlcua3tuaw2a";
+
 $projectName = "fabmedical";
-CreateDevOpsProject $organization $projectName;
+CreateDevOpsProject $orgName $projectName;
 
 $item = Get-Content -Raw -Path "$($TemplatesPath)/serviceconnection_arm.json"
 $item = $item.Replace("#ID#", "-1");
-$item = $item.Replace("#NAME#", $name)
-$item = $item.Replace("#SPN_ID#", $spnId)
-$item = $item.Replace("#SPN_SECRET#", $spnSecret)
+$item = $item.Replace("#NAME#", "azurecloud")
+$item = $item.Replace("#SPN_ID#", $appId)
+$item = $item.Replace("#SPN_SECRET#", $secret)
 $item = $item.Replace("#TENANT_ID#", $tenantId)
 $item = $item.Replace("#SUBSCRIPTION_ID#", $subscriptionid)
 $item = $item.Replace("#SUBSCRIPTION_NAME#", $subscriptionName)
 $jsonItem = ConvertFrom-Json $item
 $item = ConvertTo-Json $jsonItem -Depth 100
 
-CreateARMServiceConnection $organization "azurecloud" $item $spnId $spnSecret $tenantId $subscriptionId $subscriptionName $projectName
+CreateARMServiceConnection $orgname "azurecloud" $item $spnId $spnSecret $tenantId $subscriptionId $subscriptionName $projectName
 
 $item = Get-Content -Raw -Path "$($TemplatesPath)/serviceconnection_aci.json"
 $item = $item.Replace("#ID#", "-1");
-$item = $item.Replace("#NAME#", $name)
-$item = $item.Replace("#SPN_ID#", $spnId)
-$item = $item.Replace("#SPN_SECRET#", $spnSecret)
+$item = $item.Replace("#NAME#", "Fabmedical ACR")
+$item = $item.Replace("#ACR_SERVER#", $orgName)
+$item = $item.Replace("#RESOURCE_GROUP#", $resourceGroupName)
+$item = $item.Replace("#SPN_ID#", $appId)
+$item = $item.Replace("#SPN_SECRET#", $azurePassword)
 $item = $item.Replace("#TENANT_ID#", $tenantId)
 $item = $item.Replace("#SUBSCRIPTION_ID#", $subscriptionid)
 $item = $item.Replace("#SUBSCRIPTION_NAME#", $subscriptionName)
 $jsonItem = ConvertFrom-Json $item
 $item = ConvertTo-Json $jsonItem -Depth 100
 
-CreateARMServiceConnection $organization "Fabmedical ACR" $item $spnId $spnSecret $tenantId $subscriptionId $subscriptionName $projectName
+CreateARMServiceConnection $orgname "Fabmedical ACR" $item $spnId $spnSecret $tenantId $subscriptionId $subscriptionName $projectName
 
-$repoWeb = CreateDevOpsRepo $organization $projectName "content-web";
-$repoApi = CreateDevOpsRepo $organization $projectName "content-api";
-$repoInit = CreateDevOpsRepo $organization $projectName "content-init";
+$repoWeb = CreateDevOpsRepos $orgname $projectName "content-web";
+$repoApi = CreateDevOpsRepos $orgname $projectName "content-api";
+$repoInit = CreateDevOpsRepos $orgname $projectName "content-init";
+
+$repoNames = @("content-web","content-api","content-init");
 
 $repos = GetDevOpsRepos $orgName $projectName;
 
-cd content-web
-git init
-git add .
-git commit -m "Initial Commit"
-git remote add origin https://fabmedical-$deploymentId@dev.azure.com/fabmedical-$deploymentId/$ProjectName/_git/content-web
-git push -u origin --all
+foreach($name in $repoNames)
+{
+    $repo = $repos | where {$_.Name -eq $name};
 
-cd ../content-api
-git init
-git add .
-git commit -m "Initial Commit"
-git remote add origin https://fabmedical-sol@dev.azure.com/fabmedical-sol/fabmedical/_git/content-api
-git push -u origin --all
+    cd "C:\labfiles\microservices-workshop\artifacts\$name"
+    git init
+    git add .
+    git commit -m "Initial Commit"
+    git remote add origin $repo.remoteurl;
+    git push -u origin --all
 
-cd ../content-init
-git init
-git add .
-git commit -m "Initial Commit"
-git remote add origin https://fabmedical-sol@dev.azure.com/fabmedical-sol/fabmedical/_git/content-init
-git push -u origin --all
+}
 
-$ip = ((az vm show -d -g fabmedical-$deploymentId -n fabmedical-$deploymentId --query publicIps -o tsv) | ConvertFrom-Json).PublicIps[0];
+$ip = (az vm show -d -g $resourceGroupName -n "fabmedical-$deploymentId" --query publicIps -o tsv);
 
 #create a script...
 $break = "`r`n";
 $script = "sudo apt-get update && sudo apt install apt-transport-https ca-certificates curl software-properties-common" + $break;
 $script += "sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -" + $break;
-$script += "sudo add-apt-repository `"deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable`"" + $break;
+$script += "sudo add-apt-repository `"deb [arch=amd64] https://download.docker.com/linux/ubuntu `$(lsb_release -cs) stable`"" + $break;
 $script += "sudo apt-get install curl python-software-properties" + $break;
 $script += "sudo curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -" + $break;
 $script += "sudo apt-get update && sudo apt-get install -y docker-ce nodejs mongodb-clients" + $break;
@@ -444,20 +507,15 @@ $script += "sudo apt-get upgrade" + $break;
 $script += "sudo curl -L https://github.com/docker/compose/releases/download/1.21.2/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose" + $break;
 $script += "sudo chmod +x /usr/local/bin/docker-compose" + $break;
 $script += "sudo npm install -g @angular/cli" + $break;
-
 $script += "git config --global user.email $AzureUserName" + $break;
 $script += "git config --global user.name `"Spektra User`"" + $break;
 $script += "git config --global credential.helper cache" + $break;
+$script += "sudo chown -R `$USER:`$(id -gn `$USER) /home/adminfabmedical/.config" + $break;
 
-$script += "sudo chown -R `$USER:$(id -gn `$USER) /home/adminfabmedical/.config" + $break;
-
-foreach($repon in $repos)
+foreach($repo in $repos)
 {
-  $url = $repo.urls[0];
-
-  #get repo url from devops...content-web/api/init
-  $script += "git clone https://$($azureusername):$($azurepassword)@github.com/username/content-web.git" + $break;
-  $script += "sudo chown -R `$USER:$(id -gn `$USER) /home/adminfabmedical/.config" + $break;
+  $name = $repo.name;
+  $script += "git clone https://$($azureusername):$($azurepassword)@dev.azure.com/fabmedical-$deploymentId/fabmedical/_git/$name" + $break;
 }
 
 #connect to the VM and run the following...
@@ -466,7 +524,7 @@ foreach($repon in $repos)
 set-content "c:\labfiles\setup.sh" $script;
 
 #execute the script...
-putty.exe -ssh adminfabmedical@$ip -pw $azurePassword -m "C:\labfiles\setup.sh"
+putty.exe -ssh adminfabmedical@$ip -i ".\.ssh\fabmedical" -m "C:\labfiles\setup.sh"
 
 sleep 20
 

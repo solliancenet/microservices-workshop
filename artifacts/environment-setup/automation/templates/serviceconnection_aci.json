@@ -1,28 +1,24 @@
 {
-  "id": "#ID#",
-  "name": "#NAME#",
-  "type": "azurerm",
-  "description": "",
   "authorization": {
-    "parameters": {
-      "tenantid": "#TENANT_ID#",
-      "serviceprincipalid": "#SPN_ID#",
-      "authenticationType": "spnKey",
-      "serviceprincipalkey": "#SPN_SECRET#"
-    },
-    "scheme": "ServicePrincipal"
+      "scheme": "ServicePrincipal",
+      "parameters": {
+          "loginServer": "#ACR_SERVER#.azurecr.io",
+          "servicePrincipalId": "#SPN_ID#",
+          "tenantId": "#TENANT_ID#",
+          "serviceprincipalkey": "#SPN_SECRET#"
+      }
   },
+  "description": "",
+  "name": "#NAME#",
+  "type": "dockerregistry",
+  "url": "https://#ACR_SERVER#.azurecr.io",
+  "isShared": false,
+  "owner": "library",
   "data": {
-    "subscriptionId": "#SUBSCRIPTION_ID#",
-    "subscriptionName": "#SUBSCRIPTION_NAME#",
-    "environment": "AzureCloud",
-    "scopeLevel": "Subscription",
-    "creationMode": "Manual",
-    "azureSpnRoleAssignmentId": "",
-    "azureSpnPermissions": "",
-    "spnObjectId": "",
-    "appObjectId": ""
-  },
-  "url": "https://management.azure.com/",
-  "isReady": true
+      "registryId": "/subscriptions/#SUBSCRIPTION_ID#/resourceGroups/#RESOURCE_GROUP#/providers/Microsoft.ContainerRegistry/registries/#ACR_SERVER#",
+      "registrytype": "ACR",
+      "spnObjectId": "",
+      "subscriptionId": "#SUBSCRIPTION_ID#",
+      "subscriptionName": "#SUBSCRIPTION_NAME#"
+  }
 }
