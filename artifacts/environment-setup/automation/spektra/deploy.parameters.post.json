@@ -1,0 +1,46 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "adminUsername": {
+        "value": "wsuser"
+      },
+      "adminPassword": {
+        "value": "GET-AZUSER-PASSWORD"
+      },
+      "uniqueSuffix": {
+        "value": "GET-DEPLOYMENT-ID"
+      },
+      "region": {
+        "value": "#GET-REGION#"
+      },
+      "orgName": {
+        "value": "#ORG_NAME#"
+      },
+      "Suffix": {
+        "value": "GET-DEPLOYMENT-ID"
+      },
+      "VirtualMachineAdminUsernameLinux": {
+          "value": "adminfabmedical"
+      },
+      "VirtualMachineAdminPublicKeyLinux": {
+          "value": "#SSH_KEY#"
+      },
+      "KubernetesServicePrincipalClientId": {
+          "value": "#CLIENT_ID#"
+      },
+      "KubernetesServicePrincipalClientSecret": {
+          "value": "#CLIENT_SECRET#"
+      },
+      "KubernetesServicePrincipalObjectId": {
+          "value": "#OBJECT_ID#"
+      },
+      "CosmosLocation": {
+          "value": "#GET-REGION#"
+      },
+      "CosmosPairedLocation": {
+          "value": "#GET-REGION-PAIR#"
+      }
+    }
+  }
+  

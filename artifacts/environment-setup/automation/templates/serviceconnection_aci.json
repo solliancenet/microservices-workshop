@@ -1,0 +1,28 @@
+{
+  "id": "#ID#",
+  "name": "#NAME#",
+  "type": "azurerm",
+  "description": "",
+  "authorization": {
+    "parameters": {
+      "tenantid": "#TENANT_ID#",
+      "serviceprincipalid": "#SPN_ID#",
+      "authenticationType": "spnKey",
+      "serviceprincipalkey": "#SPN_SECRET#"
+    },
+    "scheme": "ServicePrincipal"
+  },
+  "data": {
+    "subscriptionId": "#SUBSCRIPTION_ID#",
+    "subscriptionName": "#SUBSCRIPTION_NAME#",
+    "environment": "AzureCloud",
+    "scopeLevel": "Subscription",
+    "creationMode": "Manual",
+    "azureSpnRoleAssignmentId": "",
+    "azureSpnPermissions": "",
+    "spnObjectId": "",
+    "appObjectId": ""
+  },
+  "url": "https://management.azure.com/",
+  "isReady": true
+}
