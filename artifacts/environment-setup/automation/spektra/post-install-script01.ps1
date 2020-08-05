@@ -26,7 +26,7 @@ function InstallPutty()
 	
 	if (!$item)
 	{
-		$downloadNotePad = "https://the.earth.li/~sgtatham/putty/latest/w64/putty-64bit-0.73-installer.msi";
+		$downloadNotePad = "https://the.earth.li/~sgtatham/putty/latest/w64/putty-64bit-0.74-installer.msi";
 
         mkdir c:\temp -ea silentlycontinue 
 		
@@ -182,7 +182,7 @@ function InstallNotepadPP()
 	{
 		$downloadNotePad = "https://notepad-plus-plus.org/repository/7.x/7.5.4/npp.7.5.4.Installer.exe";
 
-        mkdir c:\temp
+    mkdir c:\temp -ea silentlycontinue   
 		
 		#download it...		
 		Start-BitsTransfer -Source $DownloadNotePad -DisplayName Notepad -Destination "c:\temp\npp.exe"
@@ -234,8 +234,8 @@ function CreateLabFilesDirectory
 function CreateCredFile($azureUsername, $azurePassword, $azureTenantID, $azureSubscriptionID, $deploymentId)
 {
   $WebClient = New-Object System.Net.WebClient
-  $WebClient.DownloadFile("https://raw.githubusercontent.com/solliancenet/security-workshop/master/artifacts/environment-setup/spektra/AzureCreds.txt","C:\LabFiles\AzureCreds.txt")
-  $WebClient.DownloadFile("https://raw.githubusercontent.com/solliancenet/security-workshop/master/artifacts/environment-setup/spektra/AzureCreds.ps1","C:\LabFiles\AzureCreds.ps1")
+  $WebClient.DownloadFile("https://raw.githubusercontent.com/solliancenet/microservices-workshop/master/artifacts/environment-setup/automation/spektra/AzureCreds.txt","C:\LabFiles\AzureCreds.txt")
+  $WebClient.DownloadFile("https://raw.githubusercontent.com/solliancenet/microservices-workshop/master/artifacts/environment-setup/automation/spektra/AzureCreds.ps1","C:\LabFiles\AzureCreds.ps1")
 
   (Get-Content -Path "C:\LabFiles\AzureCreds.txt") | ForEach-Object {$_ -Replace "ClientIdValue", ""} | Set-Content -Path "C:\LabFiles\AzureCreds.ps1"
   (Get-Content -Path "C:\LabFiles\AzureCreds.txt") | ForEach-Object {$_ -Replace "AzureUserNameValue", "$azureUsername"} | Set-Content -Path "C:\LabFiles\AzureCreds.txt"
@@ -324,7 +324,7 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
 
 git clone https://github.com/solliancenet/microservices-workshop.git
 
-rm -rf microservices-workshop/.git
+remove-item microservices-workshop/.git -Recurse -force
 mkdir .ssh
 ssh-keygen -t RSA -b 2048 -C admin@fabmedical
 cat .ssh/fabmedical.pub

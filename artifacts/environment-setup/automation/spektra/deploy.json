@@ -192,7 +192,7 @@
               "autoUpgradeMinorVersion": true,
               "settings": {
                 "fileUris": [
-                  "https://raw.githubusercontent.com/solliancenet/microservices-workshop/master/artifacts/environment-setup/spektra/post-install-script01.ps1"
+                  "https://raw.githubusercontent.com/solliancenet/microservices-workshop/master/artifacts/environment-setup/automation/spektra/post-install-script01.ps1"
                 ]
               },
               "protectedSettings": {
