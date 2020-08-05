@@ -22,7 +22,6 @@
       }
     },
     "variables": {
-      "postInstallParameters": "[concat(' -azureUsername ', parameters('azureUsername'), ' -azurePassword ', parameters('azurePassword'), ' -azureTenantID ', variables('azureTenantID'), ' -azureSubscriptionID ', variables('azureSubscriptionID'), ' -odlId ', parameters('odlId'), ' -deploymentId ', parameters('deploymentId'))]",
       "azureSubscriptionID": "[subscription().subscriptionId]",
       "azureTenantID": "[subscription().tenantId]",
       "rgName": "[resourceGroup().name]",
@@ -37,7 +36,8 @@
       "virtualMachineSize": "Standard_D2s_v3",
       "virtualNetworkName": "labvm-vnet",
       "vmName": "[concat('labvm-',parameters('deploymentId'))]",
-      "location": "[resourceGroup().location]"
+      "location": "[resourceGroup().location]",
+      "postInstallParameters": "[concat(' -azureUsername ', parameters('azureUsername'), ' -azurePassword ', parameters('azurePassword'), ' -azureTenantID ', variables('azureTenantID'), ' -azureSubscriptionID ', variables('azureSubscriptionID'), ' -odlId ', parameters('odlId'), ' -deploymentId ', parameters('deploymentId'))]"
     },
     "resources": [
       {

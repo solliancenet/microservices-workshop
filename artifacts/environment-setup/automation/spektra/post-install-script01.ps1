@@ -126,7 +126,21 @@ function Ensure-ValidToken {
   #Refresh-Token;
 }
 
-function GetRepos($organization, $name)
+function CreateDevOpsRepos($organization, $name, $repoName)
+{
+    $uri = "https://dev.azure.com/$organization/$project/_apis/git/repositories?api-version=5.1"
+
+    $item = Get-Content -Raw -Path "$($TemplatesPath)/repo.json"
+    $item = $item.Replace("#REPO_NAME#", $repoName);
+    $jsonItem = ConvertFrom-Json $item
+    $item = ConvertTo-Json $jsonItem -Depth 100
+
+    Ensure-ValidTokens;
+    $result = Invoke-RestMethod  -Uri $uri -Method Post -Body $item -Headers @{ Authorization="Bearer $global:devopsToken" } -ContentType "application/json"
+    return $result;
+}
+
+function GetDevOpsRepos($organization, $name)
 {
     $uri = "https://dev.azure.com/$organization/$project/_apis/git/repositories?api-version=5.1"
     Ensure-ValidTokens;
@@ -142,8 +156,6 @@ function CreateDevOpsProject($organization, $name)
     $item = $item.Replace("#PROJECT_NAME#", $Name);
     $item = $item.Replace("#PROJECT_DESC#", $Name)
     $jsonItem = ConvertFrom-Json $item
-
-    $jsonItem.properties.content.query = $query.value
     $item = ConvertTo-Json $jsonItem -Depth 100
 
     Ensure-ValidTokens;
@@ -299,6 +311,13 @@ $rg = Get-AzResourceGroup | Where-Object { $_.ResourceGroupName -like "*-fabmedi
 $resourceGroupName = $rg.ResourceGroupName
 $deploymentId =  (Get-AzResourceGroup -Name $resourceGroupName).Tags["DeploymentId"]
 
+$ropcBodyCore = "client_id=$($clientId)&username=$($userName)&password=$($password)&grant_type=password"
+$global:ropcBodySynapse = "$($ropcBodyCore)&scope=https://dev.azuresynapse.net/.default"
+$global:ropcBodyManagement = "$($ropcBodyCore)&scope=https://management.azure.com/.default"
+$global:ropcBodySynapseSQL = "$($ropcBodyCore)&scope=https://sql.azuresynapse.net/.default"
+$global:ropcBodyPowerBI = "$($ropcBodyCore)&scope=https://analysis.windows.net/powerbi/api/.default"
+$global:ropcBodyDevOps = "$($ropcBodyCore)&scope=https://dev.azure.com/.default"
+
 Uninstall-AzureRm
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
@@ -384,11 +403,16 @@ $item = ConvertTo-Json $jsonItem -Depth 100
 
 CreateARMServiceConnection $organization "Fabmedical ACR" $item $spnId $spnSecret $tenantId $subscriptionId $subscriptionName $projectName
 
+$repoWeb = CreateDevOpsRepo $organization $projectName "content-web";
+$repoApi = CreateDevOpsRepo $organization $projectName "content-api";
+$repoInit = CreateDevOpsRepo $organization $projectName "content-init";
+
+$repos = GetDevOpsRepos $orgName $projectName;
+
 cd content-web
 git init
 git add .
 git commit -m "Initial Commit"
-
 git remote add origin https://fabmedical-$deploymentId@dev.azure.com/fabmedical-$deploymentId/$ProjectName/_git/content-web
 git push -u origin --all
 
@@ -396,11 +420,15 @@ cd ../content-api
 git init
 git add .
 git commit -m "Initial Commit"
+git remote add origin https://fabmedical-sol@dev.azure.com/fabmedical-sol/fabmedical/_git/content-api
+git push -u origin --all
 
 cd ../content-init
 git init
 git add .
 git commit -m "Initial Commit"
+git remote add origin https://fabmedical-sol@dev.azure.com/fabmedical-sol/fabmedical/_git/content-init
+git push -u origin --all
 
 $ip = ((az vm show -d -g fabmedical-$deploymentId -n fabmedical-$deploymentId --query publicIps -o tsv) | ConvertFrom-Json).PublicIps[0];
 
@@ -422,8 +450,6 @@ $script += "git config --global user.name `"Spektra User`"" + $break;
 $script += "git config --global credential.helper cache" + $break;
 
 $script += "sudo chown -R `$USER:$(id -gn `$USER) /home/adminfabmedical/.config" + $break;
-
-$repos = GetRepos $orgName $projectName;
 
 foreach($repon in $repos)
 {
