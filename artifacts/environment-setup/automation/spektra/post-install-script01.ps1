@@ -79,7 +79,7 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
     
     Start-Sleep $sleep;
     
-    Stop-Process -Name "cmd";
+    Stop-Process -Name "cmd" -Confirm:$true;
 }
 
 function GetConfig($html, $location)
@@ -692,7 +692,7 @@ foreach($name in $repoNames)
     git push -u origin --all
 }
 
-$ip = (az vm show -d -g $resourceGroupName -n "fabmedical-$deploymentId" --query publicIps -o tsv);
+$ip = (Get-AzPublicIpAddress -resourcegroup $resourcegroupname).IpAddress;
 
 #inital login...
 $script = "";
@@ -709,15 +709,15 @@ $script = "sudo add-apt-repository 'deb [arch=amd64] https://download.docker.com
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 $script = "sudo apt-get --assume-yes install curl python-software-properties";
-ExecuteRemoteCommand $ip $azurepassword $script 10;
+ExecuteRemoteCommand $ip $azurepassword $script 15;
 
 $script = "sudo curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -";
 ExecuteRemoteCommand $ip $azurepassword $script 10;
 
 $script = "sudo apt-get --assume-yes update && sudo apt-get --assume-yes install -y docker-ce nodejs mongodb-clients"
-ExecuteRemoteCommand $ip $azurepassword $script 30;
+ExecuteRemoteCommand $ip $azurepassword $script 75;
 
-$script = "sudo apt-get upgrade";
+$script = "sudo apt-get --assume-yes upgrade";
 ExecuteRemoteCommand $ip $azurepassword $script 10;
 
 $script = "sudo curl -L `"https://github.com/docker/compose/releases/download/1.21.2/docker-compose-Linux-x86_64`" -o /usr/local/bin/docker-compose"
@@ -727,22 +727,22 @@ $script = "sudo chmod +x /usr/local/bin/docker-compose"
 ExecuteRemoteCommand $ip $azurepassword $script 10;
 
 $script = "sudo npm install -g @angular/cli"
-ExecuteRemoteCommand $ip $azurepassword $script 30;
+ExecuteRemoteCommand $ip $azurepassword $script 25;
 
 $script = 'sudo usermod -aG docker $USER'
-ExecuteRemoteCommand $ip $azurepassword $script 30;
+ExecuteRemoteCommand $ip $azurepassword $script 10;
 
 $script = "git config --global user.email $AzureUserName"
-ExecuteRemoteCommand $ip $azurepassword $script 10;
+ExecuteRemoteCommand $ip $azurepassword $script 9;
 
 $script = "git config --global user.name 'Spektra User'"
-ExecuteRemoteCommand $ip $azurepassword $script 10;
+ExecuteRemoteCommand $ip $azurepassword $script 9;
 
 $script = "git config --global credential.helper cache"
-ExecuteRemoteCommand $ip $azurepassword $script 10;
+ExecuteRemoteCommand $ip $azurepassword $script 9;
 
 $script = "sudo chown -R adminfabmedical /home/adminfabmedical/.config";
-ExecuteRemoteCommand $ip $azurepassword $script 10;
+ExecuteRemoteCommand $ip $azurepassword $script 9;
 
 foreach($repo in $repos)
 {
