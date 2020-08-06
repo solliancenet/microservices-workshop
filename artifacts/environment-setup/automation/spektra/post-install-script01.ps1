@@ -613,7 +613,7 @@ $content = $content | ForEach-Object {$_ -Replace "#CLIENT_SECRET#", "$AzurePass
 $content = $content | ForEach-Object {$_ -Replace "#OBJECT_ID#", "$objectId"};
 $content | Set-Content -Path "$($parametersFile).json";
 
-#New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -TemplateFile $templateFile -TemplateParameterFile "$($parametersFile).json"
+New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -TemplateFile $templateFile -TemplateParameterFile "$($parametersFile).json"
 
 $global:synapseToken = ""
 $global:synapseSQLToken = ""
