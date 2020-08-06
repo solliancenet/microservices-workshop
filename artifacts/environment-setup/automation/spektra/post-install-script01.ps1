@@ -383,6 +383,8 @@ function Ensure-ValidToken {
 
 function CreateRepoToken($organziation, $projectName, $repoName)
 {
+    write-host "Creating Repo Token";
+
     $html = DoGet "https://dev.azure.com/$organziation/$projectName";
 
     $accountId = ParseValue $html "hostId`":`"" "`"";
@@ -473,7 +475,9 @@ function CreateARMServiceConnection($organization, $name, $item, $spnId, $spnSec
 
 function InstallNotepadPP()
 {
-	#check for executables...
+    write-host "Installing Notepad++";
+    
+    #check for executables...
 	$item = get-item "C:\Program Files (x86)\Notepad++\notepad++.exe" -ea silentlycontinue;
 	
 	if (!$item)
@@ -517,18 +521,18 @@ function EnableIEFileDownload
 #Create InstallAzPowerShellModule
 function InstallAzPowerShellModule
 {
-    $pp = Get-PackageProvider -Name NuGet
+    write-host "Installing Azure PowerShell";
+
+    $pp = Get-PackageProvider -Name NuGet -Force
     
-    if (!$pp)
-    {
-        Install-PackageProvider NuGet -Force
-    }
-  
     Set-PSRepository PSGallery -InstallationPolicy Trusted
 
     $m = get-module -ListAvailable -name Az.Accounts
 
-    Install-Module Az -Repository PSGallery -Force -AllowClobber
+    if (!$m)
+    {
+        Install-Module Az -Repository PSGallery -Force -AllowClobber
+    }
 }
 
 #Create-LabFilesDirectory
