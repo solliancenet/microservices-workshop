@@ -243,15 +243,23 @@ function LoginDevOps($username, $password)
 
 function FirstLoginDevOps($username, $email)
 {
+    $headers.add("Origin","https://aex.dev.azure.com")
+    $headers.add("X-Requested-With", "XMLHttpRequest")
+    $global:referer = "https://aex.dev.azure.com/profile/create?account=false&mkt=en-US&reply_to=https%3A%2F%2Fapp.vssps.visualstudio.com%2F_signedin%3Frealm%3Ddev.azure.com%26reply_to%3Dhttps%253A%252F%252Fdev.azure.com%252F";
     $url = "https://aex.dev.azure.com/_apis/WebPlatformAuth/SessionToken";
     $post = "{`"appId`":`"00000000-0000-0000-0000-000000000000`",`"force`":false,`"tokenType`":0,`"namedTokenId`":`"Aex.Profile`"}"
+    $global:overrideContentType = "application/json";
     $html = DoPost $url $post;
 
     $json = ConvertFrom-Json $html;
     $token = $json.token;
 
+    $headers.add("Origin","https://aex.dev.azure.com")
+    $headers.add("X-Requested-With", "XMLHttpRequest")
+    $global:referer = "https://aex.dev.azure.com/profile/create?account=false&mkt=en-US&reply_to=https%3A%2F%2Fapp.vssps.visualstudio.com%2F_signedin%3Frealm%3Ddev.azure.com%26reply_to%3Dhttps%253A%252F%252Fdev.azure.com%252F";
     $url = "https://aex.dev.azure.com/_apis/User/User";
     $post = "{`"country`":`"US`",`"data`":{`"CIData`":{`"createprofilesource`":`"web`"}},`"displayName`":`"$username`",`"mail`":`"$email`"}";
+    $global:overrideContentType = "application/json";
     $headers.add("Authorization","Bearer $token");
     $html = DoPost $url $post;
 }
