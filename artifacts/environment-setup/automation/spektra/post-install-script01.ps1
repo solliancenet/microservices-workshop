@@ -495,13 +495,6 @@ function CreateCredFile($azureUsername, $azurePassword, $azureTenantID, $azureSu
 
 Start-Transcript -Path C:\WindowsAzure\Logs\CloudLabsCustomScriptExtension.txt -Append;
 
-$azureUsername = "odl_user_210811@solliancelabs.onmicrosoft.com";
-$azurePassword = "nbkb01COE*Og";
-$azureTenantID = "3a4b264d-17b4-4abb-98bd-0728f39406fb";
-$azureSubscriptionID = "3d9a526d-603a-4b1f-a750-13344d2e7161";
-$odlId = "7981";
-$deploymentId = "210811";
-
 [Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls
 [Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls" 
 
