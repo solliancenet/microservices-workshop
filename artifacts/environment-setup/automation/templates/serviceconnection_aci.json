@@ -8,7 +8,7 @@
           "serviceprincipalkey": "#SPN_SECRET#"
       }
   },
-  "description": "",
+  "description": "#NAME#",
   "name": "#NAME#",
   "type": "dockerregistry",
   "url": "https://#ACR_SERVER#.azurecr.io",

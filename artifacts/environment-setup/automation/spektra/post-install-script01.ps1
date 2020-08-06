@@ -330,7 +330,7 @@ function CreateRepoToken($organziation, $projectName, $repoName)
 
     $accountId = ParseValue $html "hostId`":`"" "`"";
 
-    $uri = "https://dev.azure.com/fabmedical-210811/_details/security/tokens/Edit"
+    $uri = "https://dev.azure.com/$organziation/_details/security/tokens/Edit"
     $post = "{`"AccountMode`":`"SelectedAccounts`",`"AuthorizationId`":`"`",`"Description`":`"Git: https://dev.azure.com/$organization on the website.`",`"ScopeMode`":`"SelectedScopes`",`"SelectedAccounts`":`"$accountId`",`"SelectedExpiration`":`"365`",`"SelectedScopes`":`"vso.code_write`"}";
 
     $global:overrideContentType = "application/json";
@@ -568,10 +568,10 @@ $tenantId = (Get-AzContext).Tenant.Id
 $global:logindomain = (Get-AzContext).Tenant.Id;
 
 $app = Get-AzADApplication -DisplayName "Fabmedical App $deploymentid"
+$secret = ConvertTo-SecureString -String $azurePassword -AsPlainText -Force
 
 if (!$app)
 {
-    $secret = ConvertTo-SecureString -String $azurePassword -AsPlainText -Force
     $app = New-AzADApplication -DisplayName "Fabmedical App $deploymentId" -IdentifierUris "http://fabmedical-sp-$deploymentId" -Password $secret;
 }
 
