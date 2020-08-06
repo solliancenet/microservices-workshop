@@ -52,6 +52,7 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
     {
         start-sleep 2;
         $wshell.SendKeys("y")
+        $wshell.SendKeys("{ENTER}")
     }
 
     if ($argumentlist.contains("-t") -and $cmd.contains("sudo") -and !$isinitial)
@@ -732,17 +733,17 @@ ExecuteRemoteCommand $ip $azurepassword $script 25;
 $script = 'sudo usermod -aG docker $USER'
 ExecuteRemoteCommand $ip $azurepassword $script 10;
 
+$script = "sudo chown -R adminfabmedical /home/adminfabmedical/.config";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
 $script = "git config --global user.email $AzureUserName"
-ExecuteRemoteCommand $ip $azurepassword $script 9;
+ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 $script = "git config --global user.name 'Spektra User'"
-ExecuteRemoteCommand $ip $azurepassword $script 9;
+ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 $script = "git config --global credential.helper cache"
-ExecuteRemoteCommand $ip $azurepassword $script 9;
-
-$script = "sudo chown -R adminfabmedical /home/adminfabmedical/.config";
-ExecuteRemoteCommand $ip $azurepassword $script 9;
+ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 foreach($repo in $repos)
 {
