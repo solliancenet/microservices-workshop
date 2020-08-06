@@ -27,6 +27,8 @@ function LoginGitWindows($password)
     $wshell.sendkeys("{ENTER}");
 }
 
+$global:outputOnly = $true;
+
 function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
 {
     if ($isInitial -or $cmd.contains("`r"))
@@ -36,17 +38,18 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
     else
     {
         $argumentlist = "plink.exe -t -ssh -l adminfabmedical -pw `"$password`" $ip `"$cmd`"";
+        add-content "c:\labfiles\setup.sh" $cmd;
     }
 
-    start-process "cmd.exe"
-
-    start-sleep 5;
-
-    add-content "c:\labfiles\setup.sh" $cmd;
+    if (!$global:outputOnly)
+    {
+        start-process "cmd.exe"
+        start-sleep 5;
+    }
 
     $wshell = New-Object -ComObject wscript.shell;
+    $status = $wshell.AppActivate('cmd.exe');
 
-    $wshell.AppActivate('cmd.exe');
     $wshell.SendKeys($argumentlist)
     $wshell.SendKeys("{ENTER}")
     
@@ -71,7 +74,9 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
 
         foreach($line in $lines)
         {
-            $wshell.AppActivate('cmd.exe');
+            add-content "c:\labfiles\setup.sh" $line;
+
+            [void]$wshell.AppActivate('cmd.exe');
             $wshell.SendKeys($line)
             $wshell.SendKeys("{ENTER}")
             start-sleep 3;
@@ -82,10 +87,13 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
     }
 
     $wshell.SendKeys("{ENTER}")
-    
-    Start-Sleep $sleep;
-    
-    Stop-Process -Name "cmd" -Confirm:$true;
+
+    if (!$global:outputOnly)
+    {
+        Start-Sleep $sleep;
+    }
+
+    #Stop-Process -Name "cmd" -Confirm:$true;
 }
 
 function GetConfig($html, $location)
@@ -509,9 +517,18 @@ function EnableIEFileDownload
 #Create InstallAzPowerShellModule
 function InstallAzPowerShellModule
 {
-  Install-PackageProvider NuGet -Force
-  Set-PSRepository PSGallery -InstallationPolicy Trusted
-  Install-Module Az -Repository PSGallery -Force -AllowClobber
+    $pp = Get-PackageProvider -Name NuGet
+    
+    if (!$pp)
+    {
+        Install-PackageProvider NuGet -Force
+    }
+  
+    Set-PSRepository PSGallery -InstallationPolicy Trusted
+
+    $m = get-module -ListAvailable -name Az.Accounts
+
+    Install-Module Az -Repository PSGallery -Force -AllowClobber
 }
 
 #Create-LabFilesDirectory
@@ -804,12 +821,6 @@ foreach($repo in $repos)
   ExecuteRemoteCommand $ip $azurepassword $script 10;
 }
 
-#connect to the VM and run the following...
-#ssh -i .ssh/fabmedical adminfabmedical@$ip
-
-#execute the script...
-#putty.exe -ssh adminfabmedical@$ip -i "c:\labfiles\.ssh\fabmedical.ppk" -m "C:\labfiles\setup.sh"
-
 #Exercise 1
 $script = "docker network create fabmedical";
 ExecuteRemoteCommand $ip $azurepassword $script 10;
@@ -817,17 +828,22 @@ ExecuteRemoteCommand $ip $azurepassword $script 10;
 $script = "docker container run --name mongo --net fabmedical -p 27017:27017 -d mongo";
 ExecuteRemoteCommand $ip $azurepassword $script 30;
 
-$script = "`rcd content-init`rnpm install`rnodejs server.js";
+$script = "`rcd`rcd content-init`rnpm install`rnodejs server.js";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "`rcd content-api`rnpm install`rnodejs server.js &";
+$script = "`rcd`rcd content-api`rnpm install`rnodejs server.js &";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "`rcd content-web`rnpm install`rng build";
+$script = "`rcd`rcd content-web`rnpm install`rng build";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "`rcd content-api`rnode ./app.js &";
+$script = "`rcd`rcd content-api`rnode ./app.js &";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$line = "echo y | plink.exe -t -ssh -l adminfabmedical -pw `"$password`" -m `"c:\labfiles\setup.sh`" $ip";
+add-content "c:\labfiles\setup.bat" $line;
+
+& c:\labfiles\setup.bat
 
 sleep 20
 
