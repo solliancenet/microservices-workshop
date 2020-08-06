@@ -800,7 +800,7 @@ ExecuteRemoteCommand $ip $azurepassword $script 10;
 $script = "sudo chmod +x /usr/local/bin/docker-compose"
 ExecuteRemoteCommand $ip $azurepassword $script 10;
 
-$script = "sudo npm install -g @angular/cli"
+$script = "sudo npm install -g --silent @angular/cli"
 ExecuteRemoteCommand $ip $azurepassword $script 25;
 
 $script = 'sudo usermod -aG docker $USER'
@@ -841,7 +841,32 @@ ExecuteRemoteCommand $ip $azurepassword $script 5;
 $script = "`rcd`rcd content-web`rnpm install`rng build";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "`rcd`rcd content-api`rnode ./app.js &";
+$script = "``rcd`rcd content-web`rsed -i 's/localhost/$ip/' app.js"
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "`rcd`rcd content-web`rnode ./app.js &";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "`rcd`rcd content-api`rdocker image build -t content-api .";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "`rcd`rcd content-web`rdocker image build -t content-web .";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$key = "+W/j=l+Fcze=n07SchxvGSlvsLRh/7ga";
+$script = "`rdocker login $orgName.azurecr.io -u $orgName -p $key";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "`rdocker image tag content-web $orgName.azurecr.io/content-web";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "`rdocker image tag content-api $orgName.azurecr.io/content-api";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "`rdocker image push $orgName.azurecr.io/content-web";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "`rdocker image push $orgName.azurecr.io/content-api";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 $line = "echo y | plink.exe -t -ssh -l adminfabmedical -pw `"$password`" -m `"c:\labfiles\setup.sh`" $ip";
