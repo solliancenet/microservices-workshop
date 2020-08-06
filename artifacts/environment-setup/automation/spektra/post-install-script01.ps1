@@ -523,6 +523,8 @@ $password = $AzurePassword                # READ FROM FILE
 $clientId = $TokenGeneratorClientId       # READ FROM FILE
 $global:sqlPassword = $AzureSQLPassword          # READ FROM FILE
 
+Uninstall-AzureRm
+
 $securePassword = $password | ConvertTo-SecureString -AsPlainText -Force
 $cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $userName, $SecurePassword
 
@@ -542,8 +544,6 @@ $global:ropcBodyManagement = "$($ropcBodyCore)&scope=https://management.azure.co
 $global:ropcBodySynapseSQL = "$($ropcBodyCore)&scope=https://sql.azuresynapse.net/.default"
 $global:ropcBodyPowerBI = "$($ropcBodyCore)&scope=https://analysis.windows.net/powerbi/api/.default"
 $global:ropcBodyDevOps = "$($ropcBodyCore)&scope=https://app.vssps.visualstudio.com/.default"
-
-Uninstall-AzureRm
 
 git clone https://github.com/solliancenet/microservices-workshop.git
 
@@ -598,7 +598,7 @@ $content = $content.Replace("GET-AZUSER-PASSWORD",$azurepassword);
 $content = $content | ForEach-Object {$_ -Replace "GET-AZUSER-PASSWORD", "$AzurePassword"};
 $content = $content | ForEach-Object {$_ -Replace "GET-DEPLOYMENT-ID", "$deploymentId"};
 $content = $content | ForEach-Object {$_ -Replace "#GET-REGION#", "$($rg.location)"};
-$content = $content | ForEach-Object {$_ -Replace "#GET-REGION-PAIR#", "westus"};
+$content = $content | ForEach-Object {$_ -Replace "#GET-REGION-PAIR#", "westus2"};
 $content = $content | ForEach-Object {$_ -Replace "#ORG_NAME#", "$deploymentId"};
 $content = $content | ForEach-Object {$_ -Replace "#SSH_KEY#", "$publicKey"};
 $content = $content | ForEach-Object {$_ -Replace "#CLIENT_ID#", "$appId"};

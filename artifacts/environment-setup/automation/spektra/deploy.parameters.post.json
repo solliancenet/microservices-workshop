@@ -17,6 +17,9 @@
       "VirtualMachineAdminUsernameLinux": {
           "value": "adminfabmedical"
       },
+      "VirtualMachineAdminPasswordLinux": {
+        "value": "#CLIENT_SECRET#"
+    },
       "VirtualMachineAdminPublicKeyLinux": {
           "value": "#SSH_KEY#"
       },
