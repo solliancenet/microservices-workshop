@@ -190,9 +190,20 @@ function LoginDevOps($username, $password)
 
     $html = DoPost "https://app.vssps.visualstudio.com/_signedin" $post;
 
-    #$fedAuth = $global:urlCookies["app.vssps.visualstudio.com"]["FedAuth"]
-    #$fedAuth1 = $global:urlCookies["app.vssps.visualstudio.com"]["FedAuth1"]
-
+    if ($global:location.contains("aex.dev.azure.com"))
+    {
+        $alias = $username.split("@")[0];
+        FirstLoginDevOps $alias $username;
+    
+        $post = "id_token=$idToken&FedAuth=$fedAuth&FedAuth1=$fedAuth1";
+        $headers.add("Origin","https://app.vssps.visualstudio.com")
+        $headers.add("Sec-Fetch-Site","cross-site")
+        $headers.add("Sec-Fetch-Mode","navigate")
+        $headers.add("Sec-Fetch-Dest","document")
+        $global:referer = "https://app.vssps.visualstudio.com/_signedin";
+        $Html = DoGet "https://vssps.dev.azure.com/_signedin?realm=dev.azure.com&protocol=&reply_to=https%3A%2F%2Fdev.azure.com%2F";
+    }
+    
     $idToken = ParseValue $html "id_token`" value=`"" "`"";
     $fedAuth = ParseValue $html "FedAuth`" value=`"" "`"";
     $fedAuth1 = ParseValue $html "FedAuth1`" value=`"" "`"";
@@ -218,13 +229,37 @@ function LoginDevOps($username, $password)
         {
             $azureCookies.add($key,$global:urlcookies["app.vssps.visualstudio.com"][$key]);
         }
+
+        if ($azureCookies.containskey($key))
+        {
+            $azureCookies[$key] = $global:urlcookies["aex.dev.azure.com"][$key];
+        }
+        else
+        {
+            $azureCookies.add($key,$global:urlcookies["aex.dev.azure.com"][$key]);
+        }
     }
+}
 
+function FirstLoginDevOps($username, $email)
+{
+    $url = "https://aex.dev.azure.com/_apis/WebPlatformAuth/SessionToken";
+    $post = "{`"appId`":`"00000000-0000-0000-0000-000000000000`",`"force`":false,`"tokenType`":0,`"namedTokenId`":`"Aex.Profile`"}"
+    $html = DoPost $url $post;
 
+    $json = ConvertFrom-Json $html;
+    $token = $json.token;
+
+    $url = "https://aex.dev.azure.com/_apis/User/User";
+    $post = "{`"country`":`"US`",`"data`":{`"CIData`":{`"createprofilesource`":`"web`"}},`"displayName`":`"ODL_User 211146`",`"mail`":`"odl_user_211146@solliancelabs.onmicrosoft.com`"}";
+    $headers.add("Authorization","Bearer $token");
+    $html = DoPost $url $post;
 }
 
 function InstallPutty()
 {
+    write-host "Installing Putty";
+
     #check for executables...
 	$item = get-item "C:\Program Files\Putty\putty.exe" -ea silentlycontinue;
 	
@@ -348,6 +383,8 @@ function CreateRepoToken($organziation, $projectName, $repoName)
 
 function CreateDevOpsRepos($organization, $projectName, $repoName)
 {
+    write-host "Creating repo [$repoName]";
+
     $uri = "https://dev.azure.com/$organization/$projectName/_apis/git/repositories?api-version=5.1"
 
     $item = Get-Content -Raw -Path "$($TemplatesPath)/repo.json"
@@ -375,6 +412,8 @@ function CreateDevOpsRepos($organization, $projectName, $repoName)
     $global:overrideContentType = "application/json";
     $html = DoPost $uri $item;
     $result = ConvertFrom-json $html;
+
+    write-host "Creating repo result [$result]";
 
     return $result;
 }
@@ -634,10 +673,11 @@ git config --global credential.helper wincred
 
 #need to wait until devops is showing up...
 
+$username = $azureusername.split("@")[0];
+
 LoginDevOps $azureUsername $azurePassword;
 
 $projectName = "fabmedical";
-CreateDevOpsProject $orgName $projectName;
 
 $item = Get-Content -Raw -Path "$($TemplatesPath)/serviceconnection_arm.json"
 $item = $item.Replace("#ID#", "-1");
@@ -682,7 +722,6 @@ if (!$token)
     $token = CreateRepoToken $orgname $projectName;
     Set-content "devopstoken" $token;
 }
-$username = $azureusername.split("@")[0];
 
 foreach($name in $repoNames)
 {
