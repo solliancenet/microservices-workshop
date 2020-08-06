@@ -19,6 +19,204 @@ Param (
   $deploymentId
 )
 
+function LoginGitWindows($password)
+{
+    $wshell.AppActivate('Sign in to your account')
+    $wshell.sendkeys("{TAB}{ENTER}");
+    $wshell.sendkeys($password);
+    $wshell.sendkeys("{ENTER}");
+}
+
+function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
+{
+    if ($isInitial -or $cmd.contains("`r"))
+    {
+        $argumentlist = "plink.exe -t -ssh -l adminfabmedical -pw `"$password`" $ip";
+    }
+    else
+    {
+        $argumentlist = "plink.exe -t -ssh -l adminfabmedical -pw `"$password`" $ip `"$cmd`"";
+    }
+
+    start-process "cmd.exe"
+
+    start-sleep 5;
+
+    $wshell = New-Object -ComObject wscript.shell;
+
+    $wshell.AppActivate('cmd.exe');
+    $wshell.SendKeys($argumentlist)
+    $wshell.SendKeys("{ENTER}")
+    
+    if ($isinitial)
+    {
+        start-sleep 2;
+        $wshell.SendKeys("y")
+    }
+
+    if ($argumentlist.contains("-t") -and $cmd.contains("sudo") -and !$isinitial)
+    {
+        $wshell.SendKeys("{ENTER}")
+        start-sleep 2;
+        $wshell.SendKeys($password);
+        $wshell.SendKeys("{ENTER}")
+    }
+
+    if ($cmd.contains("`r"))
+    {
+        $lines = $cmd.split("`r");
+
+        foreach($line in $lines)
+        {
+            $wshell.AppActivate('cmd.exe');
+            $wshell.SendKeys($line)
+            $wshell.SendKeys("{ENTER}")
+            start-sleep 2;
+        }
+    }
+
+    $wshell.SendKeys("{ENTER}")
+    
+    Start-Sleep $sleep;
+    
+    Stop-Process -Name "cmd";
+}
+
+function GetConfig($html, $location)
+{
+    if ($html.contains("`$Config"))
+    {
+        $config = ParseValue $html "`$Config=" "]]";
+        
+        if($config.endswith(";//"))
+        {
+            $config = $config.substring(0, $config.length-3);
+        }
+
+        return ConvertFrom-Json $Config;
+    }
+}
+
+function LoginDevOps($username, $password)
+{
+    $html = DoGet "https://dev.azure.com";
+
+    $html = DoGet $global:location;
+
+    $global:defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36";
+    $headers.add("Sec-Fetch-Site","cross-site")
+    $headers.add("Sec-Fetch-Mode","navigate")
+    $headers.add("Sec-Fetch-Dest","document")
+    $url = "https://login.microsoftonline.com/common/oauth2/authorize?client_id=499b84ac-1321-427f-aa17-267ca6975798&site_id=501454&response_mode=form_post&response_type=code+id_token&redirect_uri=https%3A%2F%2Fapp.vssps.visualstudio.com%2F_signedin&nonce=a0c857d6-c9e4-46e0-9681-0c5cd86c6207&state=realm%3Ddev.azure.com%26reply_to%3Dhttps%253A%252F%252Fdev.azure.com%252F%26ht%3D3%26nonce%3Da0c857d6-c9e4-46e0-9681-0c5cd86c6207%26githubsi%3Dtrue%26WebUserId%3D00E567095F7B68FC339768145E80699D&resource=https%3A%2F%2Fmanagement.core.windows.net%2F&cid=a0c857d6-c9e4-46e0-9681-0c5cd86c6207&wsucxt=1&githubsi=true&msaoauth2=true"
+    $html = DoGet $url;
+
+    $hpgid = ParseValue $html, "`"hpgid`":" ","
+
+    $global:referer = $url;
+    $html = DoGet "https://login.microsoftonline.com/common/oauth2/authorize?client_id=499b84ac-1321-427f-aa17-267ca6975798&site_id=501454&response_mode=form_post&response_type=code+id_token&redirect_uri=https%3A%2F%2Fapp.vssps.visualstudio.com%2F_signedin&nonce=a0c857d6-c9e4-46e0-9681-0c5cd86c6207&state=realm%3Ddev.azure.com%26reply_to%3Dhttps%253A%252F%252Fdev.azure.com%252F%26ht%3D3%26nonce%3Da0c857d6-c9e4-46e0-9681-0c5cd86c6207%26githubsi%3Dtrue%26WebUserId%3D00E567095F7B68FC339768145E80699D&resource=https%3A%2F%2Fmanagement.core.windows.net%2F&cid=a0c857d6-c9e4-46e0-9681-0c5cd86c6207&wsucxt=1&githubsi=true&msaoauth2=true&sso_reload=true"
+
+    $config = GetConfig $html;
+
+    $hpgid = ParseValue $html "`"sessionId`":`"" "`""
+    $stsRequest = ParseValue $html "ctx%3d" "\u0026";
+    $flowToken = ParseValue $html "sFT`":`"" "`"";
+    $canary = ParseValue $html "`"canary`":`"" "`"";
+
+    $orginalRequest = $stsRequest;
+
+    $post = "{`"username`":`"$username`",`"isOtherIdpSupported`":true,`"checkPhones`":true,`"isRemoteNGCSupported`":true,`"isCookieBannerShown`":false,`"isFidoSupported`":true,`"originalRequest`":`"$orginalRequest`",`"country`":`"US`",`"forceotclogin`":false,`"isExternalFederationDisallowed`":false,`"isRemoteConnectSupported`":false,`"federationFlags`":0,`"isSignup`":false,`"flowToken`":`"$flowToken`",`"isAccessPassSupported`":true}";
+    $html = DoPost "https://login.microsoftonline.com/common/GetCredentialType?mkt=en-US" $post;
+    $json = ConvertFrom-Json $html;
+
+    $flowToken = $json.FlowToken;
+    $apiCanary = $json.apiCanary;
+
+    $post = "i13=0&login=$([System.Web.HttpUtility]::UrlEncode($username))&loginfmt=$([System.Web.HttpUtility]::UrlEncode($username))&type=11&LoginOptions=3&lrt=&lrtPartition=&hisRegion=&hisScaleUnit=&passwd=$([System.Web.HttpUtility]::UrlEncode($password))&ps=2&psRNGCDefaultType=&psRNGCEntropy=&psRNGCSLK=&canary=$([System.Web.HttpUtility]::UrlEncode($canary))&ctx=$([System.Web.HttpUtility]::UrlEncode($stsRequest))&hpgrequestid=$hpgid&flowToken=$([System.Web.HttpUtility]::UrlEncode($flowToken))&PPSX=&NewUser=1&FoundMSAs=&fspost=0&i21=0&CookieDisclosure=0&IsFidoSupported=1&isSignupPost=0&i2=1&i17=&i18=&i19=29262"
+    $headers.add("Origin","https://login.microsoftonline.com")
+    $headers.add("Sec-Fetch-Site","same-origin")
+    $headers.add("Sec-Fetch-Mode","navigate")
+    $headers.add("Sec-Fetch-User","?1")
+    $headers.add("Sec-Fetch-Dest","document")
+    $global:referer = "https://login.microsoftonline.com/common/oauth2/authorize?client_id=499b84ac-1321-427f-aa17-267ca6975798&site_id=501454&response_mode=form_post&response_type=code+id_token&redirect_uri=https%3A%2F%2Fapp.vssps.visualstudio.com%2F_signedin&nonce=a0c857d6-c9e4-46e0-9681-0c5cd86c6207&state=realm%3Ddev.azure.com%26reply_to%3Dhttps%253A%252F%252Fdev.azure.com%252F%26ht%3D3%26nonce%3Da0c857d6-c9e4-46e0-9681-0c5cd86c6207%26githubsi%3Dtrue%26WebUserId%3D00E567095F7B68FC339768145E80699D&resource=https%3A%2F%2Fmanagement.core.windows.net%2F&cid=a0c857d6-c9e4-46e0-9681-0c5cd86c6207&wsucxt=1&githubsi=true&msaoauth2=true&sso_reload=true";
+
+    if (!$urlCookies["login.microsoftonline.com"].ContainsKey("AADSSO"))
+    {
+        $urlCookies["login.microsoftonline.com"].Add("AADSSO", "NA|NoExtension");
+    }
+
+    if (!$urlCookies["login.microsoftonline.com"].ContainsKey("SSOCOOKIEPULLED"))
+    {
+        $urlCookies["login.microsoftonline.com"].Add("SSOCOOKIEPULLED", "1");
+    }
+                
+    $html = DoPost "https://login.microsoftonline.com/common/login" $post;
+
+    $correlationId = ParseValue $html "`"correlationId`":`"" "`""
+    $hpgid = ParseValue $html "`"hpgid`":" ","
+    $hpgact = ParseValue $html "`"hpgact`":" ","
+    $sessionId = ParseValue $html "`"sessionId`":`"" "`""
+    $canary = ParseValue $html "`"canary`":`"" "`""
+    $apiCanary = ParseValue $html "`"apiCanary`":`"" "`""
+    $ctx = ParseValue $html "`"sCtx`":`"" "`""
+    $flowToken = ParseValue $html "`"sFT`":`"" "`""
+
+    $config = GetConfig $html;
+
+    $ctx = $config.sCtx;
+    $flowToken = $config.sFt;
+    $canary = $config.canary;
+
+    $post = "LoginOptions=1&type=28&ctx=$ctx&hpgrequestid=$hpgid&flowToken=$flowToken&canary=$canary&i2=&i17=&i18=&i19=4251";
+    $html = DoPost "https://login.microsoftonline.com/kmsi" $post;
+
+    $code = ParseValue $html "code`" value=`"" "`"";
+    $idToken = ParseValue $html "id_token`" value=`"" "`"";
+    $sessionState = ParseValue $html "session_state`" value=`"" "`"";
+    $state = ParseValue $html "state`" value=`"" "`"";
+
+    $state = $state.replace("&amp;","&")
+
+    $post = "code=$([System.Web.HttpUtility]::UrlEncode($code))&id_token=$([System.Web.HttpUtility]::UrlEncode($idToken))&state=$([System.Web.HttpUtility]::UrlEncode($state))&session_state=$sessionState"
+    $headers.add("Origin","https://login.microsoftonline.com")
+    $headers.add("Sec-Fetch-Site","cross-site")
+    $headers.add("Sec-Fetch-Mode","navigate")
+    $headers.add("Sec-Fetch-Dest","document")
+
+    $html = DoPost "https://app.vssps.visualstudio.com/_signedin" $post;
+
+    #$fedAuth = $global:urlCookies["app.vssps.visualstudio.com"]["FedAuth"]
+    #$fedAuth1 = $global:urlCookies["app.vssps.visualstudio.com"]["FedAuth1"]
+
+    $idToken = ParseValue $html "id_token`" value=`"" "`"";
+    $fedAuth = ParseValue $html "FedAuth`" value=`"" "`"";
+    $fedAuth1 = ParseValue $html "FedAuth1`" value=`"" "`"";
+
+    $post = "id_token=$idToken&FedAuth=$fedAuth&FedAuth1=$fedAuth1";
+    $headers.add("Origin","https://app.vssps.visualstudio.com")
+    $headers.add("Sec-Fetch-Site","cross-site")
+    $headers.add("Sec-Fetch-Mode","navigate")
+    $headers.add("Sec-Fetch-Dest","document")
+    $global:referer = "https://app.vssps.visualstudio.com/_signedin";
+    $Html = DoPost "https://vssps.dev.azure.com/_signedin?realm=dev.azure.com&protocol=&reply_to=https%3A%2F%2Fdev.azure.com%2F" $post;
+
+    $html = DoGet "https://dev.azure.com";
+    $azureCookies = $global:urlcookies["dev.azure.com"];
+
+    foreach($key in $global:urlcookies["app.vssps.visualstudio.com"].keys)
+    {
+        if ($azureCookies.containskey($key))
+        {
+            $azureCookies[$key] = $global:urlcookies["app.vssps.visualstudio.com"][$key];
+        }
+        else
+        {
+            $azureCookies.add($key,$global:urlcookies["app.vssps.visualstudio.com"][$key]);
+        }
+    }
+
+
+}
+
 function InstallPutty()
 {
     #check for executables...
@@ -126,6 +324,22 @@ function Ensure-ValidToken {
   #Refresh-Token;
 }
 
+function CreateRepoToken($organziation, $projectName, $repoName)
+{
+    $html = DoGet "https://dev.azure.com/$organziation/$projectName";
+
+    $accountId = ParseValue $html "hostId`":`"" "`"";
+
+    $uri = "https://dev.azure.com/fabmedical-210811/_details/security/tokens/Edit"
+    $post = "{`"AccountMode`":`"SelectedAccounts`",`"AuthorizationId`":`"`",`"Description`":`"Git: https://dev.azure.com/$organization on the website.`",`"ScopeMode`":`"SelectedScopes`",`"SelectedAccounts`":`"$accountId`",`"SelectedExpiration`":`"365`",`"SelectedScopes`":`"vso.code_write`"}";
+
+    $global:overrideContentType = "application/json";
+    $html = DoPost $uri $post;
+    $result = ConvertFrom-json $html;
+
+    return $result.Token;
+}
+
 function CreateDevOpsRepos($organization, $projectName, $repoName)
 {
     $uri = "https://dev.azure.com/$organization/$projectName/_apis/git/repositories?api-version=5.1"
@@ -135,8 +349,8 @@ function CreateDevOpsRepos($organization, $projectName, $repoName)
     $jsonItem = ConvertFrom-Json $item
     $item = ConvertTo-Json $jsonItem -Depth 100
 
+    <#
     Ensure-ValidTokens;
-
     $azuredevopsLogin = "$($azureusername):$($azurepassword)";
     $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($azuredevopsLogin)")) }
 
@@ -150,27 +364,22 @@ function CreateDevOpsRepos($organization, $projectName, $repoName)
     }
 
     $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $item -Headers $AzureDevOpsAuthenicationHeader -ContentType "application/json";
+    #>
+
+    $global:overrideContentType = "application/json";
+    $html = DoPost $uri $item;
+    $result = ConvertFrom-json $html;
+
     return $result;
 }
 
 function GetDevOpsRepos($organization, $projectName)
 {
     $uri = "https://dev.azure.com/$organization/$projectName/_apis/git/repositories?api-version=5.1"
-    Ensure-ValidTokens;
-    
-    $azuredevopsLogin = "$($azureusername):$($azurepassword)";
-    $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($azuredevopsLogin)")) }
+    $global:overrideContentType = "application/json";
+    $html = DoGet $uri;
+    $result = ConvertFrom-json $html;
 
-    if ($global:pat)
-    {
-        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($global:pat)")) }
-    }
-    else
-    {
-        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Bearer ' + $global:devopsToken }
-    }
-
-    $result = Invoke-RestMethod  -Uri $uri -Method GET -Headers $AzureDevOpsAuthenicationHeader -ContentType "application/json";
     return $result.value;
 }
 
@@ -184,43 +393,21 @@ function CreateDevOpsProject($organization, $name)
     $jsonItem = ConvertFrom-Json $item
     $item = ConvertTo-Json $jsonItem -Depth 100
 
-    Ensure-ValidTokens;
-
-    $azuredevopsLogin = "$($azureusername):$($azurepassword)";
-    $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($azuredevopsLogin)")) }
-
-    if ($global:pat)
-    {
-        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($global:pat)")) }
-    }
-    else
-    {
-        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Bearer ' + $global:devopsToken }
-    }
-
-    $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $item -Headers $AzureDevOpsAuthenicationHeader -ContentType "application/json";
+    $global:overrideContentType = "application/json";
+    $html = DoPost $uri $item;
+    $result = ConvertFrom-json $html;
+    return $result;
 }
 
 #https://borzenin.no/create-service-connection/
 function CreateARMServiceConnection($organization, $name, $item, $spnId, $spnSecret, $tenantId, $subscriptionId, $subscriptionName, $projectName)
 {
     $uri = " https://dev.azure.com/$organization/$projectName/_apis/serviceendpoint/endpoints?api-version=5.1-preview";
+    $global:overrideContentType = "application/json";
+    $html = DoPost $uri $item;
+    $result = ConvertFrom-json $html;
 
-    Ensure-ValidTokens;
-
-    $azuredevopsLogin = "$($azureusername):$($azurepassword)";
-    $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($azuredevopsLogin)")) }
-
-    if ($global:pat)
-    {
-        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($global:pat)")) }
-    }
-    else
-    {
-        $AzureDevOpsAuthenicationHeader = @{Authorization = 'Bearer ' + $global:devopsToken }
-    }
-
-    $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $item -Headers $AzureDevOpsAuthenicationHeader -ContentType "application/json";
+    return $result;
 }
 
 function InstallNotepadPP()
@@ -361,6 +548,9 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
 
 git clone https://github.com/solliancenet/microservices-workshop.git
 
+#add helper files...
+. "C:\LabFiles\microservices-workshop\artifacts\environment-setup\automation\HttpHelper.ps1"
+
 remove-item microservices-workshop/.git -Recurse -force -ea SilentlyContinue
 
 $publicKey = get-content "./.ssh/fabmedical.pub" -ea SilentlyContinue;
@@ -409,7 +599,7 @@ $content = $content.Replace("GET-AZUSER-PASSWORD",$azurepassword);
 $content = $content | ForEach-Object {$_ -Replace "GET-AZUSER-PASSWORD", "$AzurePassword"};
 $content = $content | ForEach-Object {$_ -Replace "GET-DEPLOYMENT-ID", "$deploymentId"};
 $content = $content | ForEach-Object {$_ -Replace "#GET-REGION#", "$($rg.location)"};
-$content = $content | ForEach-Object {$_ -Replace "#GET-REGION-PAIR#", "$($rg.location)"};
+$content = $content | ForEach-Object {$_ -Replace "#GET-REGION-PAIR#", "westus"};
 $content = $content | ForEach-Object {$_ -Replace "#ORG_NAME#", "$deploymentId"};
 $content = $content | ForEach-Object {$_ -Replace "#SSH_KEY#", "$publicKey"};
 $content = $content | ForEach-Object {$_ -Replace "#CLIENT_ID#", "$appId"};
@@ -417,9 +607,7 @@ $content = $content | ForEach-Object {$_ -Replace "#CLIENT_SECRET#", "$AzurePass
 $content = $content | ForEach-Object {$_ -Replace "#OBJECT_ID#", "$objectId"};
 $content | Set-Content -Path "$($parametersFile).json";
 
-New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName `
-  -TemplateFile $templateFile `
-  -TemplateParameterFile "$($parametersFile).json"
+#New-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -TemplateFile $templateFile -TemplateParameterFile "$($parametersFile).json"
 
 $global:synapseToken = ""
 $global:synapseSQLToken = ""
@@ -437,9 +625,9 @@ $global:tokenTimes = [ordered]@{
 
 git config --global user.email $AzureUserName
 git config --global user.name "Spektra User"
-git config --global credential.helper cache
+git config --global credential.helper wincred
 
-$global:pat = "m73ng3qsyln4zlya3btebvuwaoempnazqofvommqvlcua3tuaw2a";
+LoginDevOps $azureUsername $azurePassword;
 
 $projectName = "fabmedical";
 CreateDevOpsProject $orgName $projectName;
@@ -480,6 +668,15 @@ $repoNames = @("content-web","content-api","content-init");
 
 $repos = GetDevOpsRepos $orgName $projectName;
 
+$token = Get-Content "devopstoken";
+
+if (!$token)
+{
+    $token = CreateRepoToken $orgname $projectName;
+    Set-content "devopstoken" $token;
+}
+$username = $azureusername.split("@")[0];
+
 foreach($name in $repoNames)
 {
     $repo = $repos | where {$_.Name -eq $name};
@@ -488,34 +685,69 @@ foreach($name in $repoNames)
     git init
     git add .
     git commit -m "Initial Commit"
-    git remote add origin $repo.remoteurl;
+    $url = $repo.remoteurl
+    $url = "https://$($username):$($token)@dev.azure.com/fabmedical-$deploymentId/fabmedical/_git/$name";
+    git remote add origin $url;
     git push -u origin --all
-
 }
 
 $ip = (az vm show -d -g $resourceGroupName -n "fabmedical-$deploymentId" --query publicIps -o tsv);
 
+#inital login...
+$script = "";
+ExecuteRemoteCommand $ip $azurepassword $script 10 $true;
+
+$script = "sudo apt-get --assume-yes update && sudo apt --assume-yes install apt-transport-https ca-certificates curl software-properties-common";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
 #create a script...
-$break = "`r`n";
-$script = "sudo apt-get update && sudo apt install apt-transport-https ca-certificates curl software-properties-common" + $break;
-$script += "sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -" + $break;
-$script += "sudo add-apt-repository `"deb [arch=amd64] https://download.docker.com/linux/ubuntu `$(lsb_release -cs) stable`"" + $break;
-$script += "sudo apt-get install curl python-software-properties" + $break;
-$script += "sudo curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -" + $break;
-$script += "sudo apt-get update && sudo apt-get install -y docker-ce nodejs mongodb-clients" + $break;
-$script += "sudo apt-get upgrade" + $break;
-$script += "sudo curl -L https://github.com/docker/compose/releases/download/1.21.2/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose" + $break;
-$script += "sudo chmod +x /usr/local/bin/docker-compose" + $break;
-$script += "sudo npm install -g @angular/cli" + $break;
-$script += "git config --global user.email $AzureUserName" + $break;
-$script += "git config --global user.name `"Spektra User`"" + $break;
-$script += "git config --global credential.helper cache" + $break;
-$script += "sudo chown -R `$USER:`$(id -gn `$USER) /home/adminfabmedical/.config" + $break;
+$script = "sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "sudo add-apt-repository 'deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable'"
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "sudo apt-get --assume-yes install curl python-software-properties";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo apt-get --assume-yes update && sudo apt-get --assume-yes install -y docker-ce nodejs mongodb-clients"
+ExecuteRemoteCommand $ip $azurepassword $script 30;
+
+$script = "sudo apt-get upgrade";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo curl -L `"https://github.com/docker/compose/releases/download/1.21.2/docker-compose-Linux-x86_64`" -o /usr/local/bin/docker-compose"
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo chmod +x /usr/local/bin/docker-compose"
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo npm install -g @angular/cli"
+ExecuteRemoteCommand $ip $azurepassword $script 30;
+
+$script = 'sudo usermod -aG docker $USER'
+ExecuteRemoteCommand $ip $azurepassword $script 30;
+
+$script = "git config --global user.email $AzureUserName"
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "git config --global user.name 'Spektra User'"
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "git config --global credential.helper cache"
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo chown -R adminfabmedical /home/adminfabmedical/.config";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
 
 foreach($repo in $repos)
 {
   $name = $repo.name;
-  $script += "git clone https://$($azureusername):$($azurepassword)@dev.azure.com/fabmedical-$deploymentId/fabmedical/_git/$name" + $break;
+  $script = "git clone https://$($username):$($token)@dev.azure.com/fabmedical-$deploymentId/fabmedical/_git/$name";
+  ExecuteRemoteCommand $ip $azurepassword $script 10;
 }
 
 #connect to the VM and run the following...
@@ -524,7 +756,26 @@ foreach($repo in $repos)
 set-content "c:\labfiles\setup.sh" $script;
 
 #execute the script...
-putty.exe -ssh adminfabmedical@$ip -i ".\.ssh\fabmedical" -m "C:\labfiles\setup.sh"
+#putty.exe -ssh adminfabmedical@$ip -i "c:\labfiles\.ssh\fabmedical.ppk" -m "C:\labfiles\setup.sh"
+
+#Exercise 1
+$script = "docker network create fabmedical";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "docker container run --name mongo --net fabmedical -p 27017:27017 -d mongo";
+ExecuteRemoteCommand $ip $azurepassword $script 30;
+
+$script = "cd content-init`rnpm install`rnodejs server.js";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "cd content-api`rnpm install`rnodejs server.js &";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "cd content-api`rnpm install`rng build";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "cd content-api`rnode ./app.js &";
+ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 sleep 20
 

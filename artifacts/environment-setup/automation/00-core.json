@@ -9,6 +9,9 @@
           "type": "string",
           "defaultValue": "[resourceGroup().location]"
       },
+      "VirtualMachineAdminPasswordLinux": {
+          "type": "string"
+      },
       "VirtualMachineAdminUsernameLinux": {
           "type": "string"
       },
@@ -289,26 +292,16 @@
               "osProfile": {
                   "computerName": "[variables('virtualMachineNameLinux')]",
                   "adminUsername": "[parameters('VirtualMachineAdminUsernameLinux')]",
-                  "linuxConfiguration": {
-                      "disablePasswordAuthentication": true,
-                      "ssh": {
-                          "publicKeys": [
-                              {
-                                  "path": "[concat('/home/', parameters('VirtualMachineAdminUsernameLinux'), '/.ssh/authorized_keys')]",
-                                  "keyData": "[parameters('VirtualMachineAdminPublicKeyLinux')]"
-                              }
-                          ]
-                      }
-                  }
-              },
+                  "adminPassword": "[parameters('VirtualMachineAdminPasswordLinux')]"
+            },
               "diagnosticsProfile": {
                   "bootDiagnostics": {
                       "enabled": true,
                       "storageUri": "[concat('https://', variables('diagnosticsStorageAccountNameLinux'), '.blob.core.windows.net/')]"
                   }
               }
-          }
-      },
+          },
+        }
       {
           "type": "Microsoft.ContainerRegistry/registries",
           "apiVersion": "2017-10-01",
