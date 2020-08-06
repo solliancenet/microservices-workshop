@@ -511,6 +511,14 @@ EnableIEFileDownload
 
 CreateLabFilesDirectory
 
+InstallPutty
+
+InstallNotepadPP
+
+InstallAzPowerShellModule
+
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
+
 cd "c:\labfiles";
 
 CreateCredFile $azureUsername $azurePassword $azureTenantID $azureSubscriptionID $deploymentId $odlId
@@ -543,8 +551,6 @@ $global:ropcBodyPowerBI = "$($ropcBodyCore)&scope=https://analysis.windows.net/p
 $global:ropcBodyDevOps = "$($ropcBodyCore)&scope=https://app.vssps.visualstudio.com/.default"
 
 Uninstall-AzureRm
-
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
 
 git clone https://github.com/solliancenet/microservices-workshop.git
 
