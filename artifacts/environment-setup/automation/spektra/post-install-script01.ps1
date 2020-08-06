@@ -626,6 +626,8 @@ git config --global user.email $AzureUserName
 git config --global user.name "Spektra User"
 git config --global credential.helper wincred
 
+#need to wait until devops is showing up...
+
 LoginDevOps $azureUsername $azurePassword;
 
 $projectName = "fabmedical";
@@ -667,7 +669,7 @@ $repoNames = @("content-web","content-api","content-init");
 
 $repos = GetDevOpsRepos $orgName $projectName;
 
-$token = Get-Content "devopstoken";
+$token = Get-Content "devopstoken" -ea silentlycontinue;
 
 if (!$token)
 {
