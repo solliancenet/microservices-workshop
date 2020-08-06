@@ -42,6 +42,8 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
 
     start-sleep 5;
 
+    add-content "c:\labfiles\setup.sh" $cmd;
+
     $wshell = New-Object -ComObject wscript.shell;
 
     $wshell.AppActivate('cmd.exe');
@@ -72,8 +74,11 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
             $wshell.AppActivate('cmd.exe');
             $wshell.SendKeys($line)
             $wshell.SendKeys("{ENTER}")
-            start-sleep 2;
+            start-sleep 3;
         }
+
+        $wshell.SendKeys("exit")
+        $wshell.SendKeys("{ENTER}")
     }
 
     $wshell.SendKeys("{ENTER}")
@@ -755,8 +760,6 @@ foreach($repo in $repos)
 #connect to the VM and run the following...
 #ssh -i .ssh/fabmedical adminfabmedical@$ip
 
-set-content "c:\labfiles\setup.sh" $script;
-
 #execute the script...
 #putty.exe -ssh adminfabmedical@$ip -i "c:\labfiles\.ssh\fabmedical.ppk" -m "C:\labfiles\setup.sh"
 
@@ -767,16 +770,16 @@ ExecuteRemoteCommand $ip $azurepassword $script 10;
 $script = "docker container run --name mongo --net fabmedical -p 27017:27017 -d mongo";
 ExecuteRemoteCommand $ip $azurepassword $script 30;
 
-$script = "cd content-init`rnpm install`rnodejs server.js";
+$script = "`rcd content-init`rnpm install`rnodejs server.js";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "cd content-api`rnpm install`rnodejs server.js &";
+$script = "`rcd content-api`rnpm install`rnodejs server.js &";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "cd content-api`rnpm install`rng build";
+$script = "`rcd content-web`rnpm install`rng build";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "cd content-api`rnode ./app.js &";
+$script = "`rcd content-api`rnode ./app.js &";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 sleep 20
