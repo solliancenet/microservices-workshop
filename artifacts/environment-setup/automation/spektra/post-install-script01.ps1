@@ -251,7 +251,7 @@ function FirstLoginDevOps($username, $email)
     $token = $json.token;
 
     $url = "https://aex.dev.azure.com/_apis/User/User";
-    $post = "{`"country`":`"US`",`"data`":{`"CIData`":{`"createprofilesource`":`"web`"}},`"displayName`":`"ODL_User 211146`",`"mail`":`"odl_user_211146@solliancelabs.onmicrosoft.com`"}";
+    $post = "{`"country`":`"US`",`"data`":{`"CIData`":{`"createprofilesource`":`"web`"}},`"displayName`":`"$username`",`"mail`":`"$email`"}";
     $headers.add("Authorization","Bearer $token");
     $html = DoPost $url $post;
 }
