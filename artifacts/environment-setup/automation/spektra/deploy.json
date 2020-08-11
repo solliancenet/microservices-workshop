@@ -3,16 +3,16 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
       "vmAdminUsername": {
-        "type": "String"
+        "type": "string"
       },
       "vmAdminPassword": {
-        "type": "SecureString"
+        "type": "string"
       },
       "azureUsername": {
         "type": "string"
       },
       "azurePassword": {
-        "type": "securestring"
+        "type": "string"
       },
       "odlId": {
         "type": "string"

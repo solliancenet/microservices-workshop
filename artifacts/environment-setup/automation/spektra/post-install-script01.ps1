@@ -877,3 +877,5 @@ add-content "c:\labfiles\setup.bat" $line;
 sleep 20
 
 Stop-Transcript
+
+return 0;
