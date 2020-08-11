@@ -800,7 +800,10 @@ ExecuteRemoteCommand $ip $azurepassword $script 10;
 $script = "sudo chmod +x /usr/local/bin/docker-compose"
 ExecuteRemoteCommand $ip $azurepassword $script 10;
 
-$script = "sudo npm install -g --silent @angular/cli"
+$script = "sudo npm install -g --silent @angular/cli > /dev/null"
+ExecuteRemoteCommand $ip $azurepassword $script 25;
+
+$script = "export NG_CLI_ANALYTICS=ci"
 ExecuteRemoteCommand $ip $azurepassword $script 25;
 
 $script = 'sudo usermod -aG docker $USER'
@@ -877,5 +880,7 @@ add-content "c:\labfiles\setup.bat" $line;
 sleep 20
 
 Stop-Transcript
+
+restart-computer -force;
 
 return 0;
