@@ -856,8 +856,8 @@ ExecuteRemoteCommand $ip $azurepassword $script 5;
 $script = "`rcd`rcd content-web`rdocker image build -t content-web .";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$key = "+W/j=l+Fcze=n07SchxvGSlvsLRh/7ga";
-$script = "`rdocker login $orgName.azurecr.io -u $orgName -p $key";
+$acrCreds = Get-AzContainerRegistryCredential -ResourceGroupName $resouceGroupName -Name "$orgName.azurecr.io"
+$script = "`rdocker login $orgName.azurecr.io -u $($acrCreds.Username) -p $($acrCreds.Password)";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 $script = "`rdocker image tag content-web $orgName.azurecr.io/content-web";
