@@ -16,12 +16,8 @@
           "Order": 3
         }     ,
         {
-          "RawFilePath": "https://raw.githubusercontent.com/solliancenet/microservice-workshop/master/labs/02_Lab01.md",
+          "RawFilePath": "https://raw.githubusercontent.com/solliancenet/microservice-workshop/master/labs/01_Lab03.md",
           "Order": 4
-        },
-        {
-          "RawFilePath": "https://raw.githubusercontent.com/solliancenet/microservice-workshop/master/labs/02_Lab02.md",
-          "Order": 5
         }
       ]
     }
