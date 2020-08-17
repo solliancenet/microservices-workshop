@@ -19,6 +19,34 @@ Param (
   $deploymentId
 )
 
+function LoadCosmosDb()
+{
+    $databaseName = "contentdb";
+    $partitionkey = "";
+    $cosmosDbContext = New-CosmosDbContext -Account "fabmedical$deploymentid" -Database $databaseName -ResourceGroup $resourceGroupName
+    New-CosmosDbDatabase -Context $cosmosDbContext -Id $databaseName
+    
+    $strJson = Get-Content "c:\labfiles\microservices-workshop\artifacts\content-inti\json\sessions.json"
+    $json = ConvertFrom-Json $strJson;
+    $collectionName = "sessions";
+    New-CosmosDbCollection -Context $cosmosDbContext -Id $collectionName -PartitionKey $partitionkey -OfferThroughput 400 -Database $databaseName
+    
+    foreach($j in $json)
+    {
+        New-CosmosDbDocument -Context $cosmosDbContext -CollectionId $collectionName -DocumentBody $j -PartitionKey "XYZ"
+    }
+    
+    $strJson = Get-Content "c:\labfiles\microservices-workshop\artifacts\content-inti\json\speakers.json"
+    $json = ConvertFrom-Json $strJson;
+    $collectionName = "speaker";
+    New-CosmosDbCollection -Context $cosmosDbContext -Id $collectionName -PartitionKey $partitionkey -OfferThroughput 400 -Database $databaseName
+    
+    foreach($j in $json)
+    {
+        New-CosmosDbDocument -Context $cosmosDbContext -CollectionId $collectionName -DocumentBody $j -PartitionKey "XYZ"
+    }
+}
+
 function LoginGitWindows($password)
 {
     $wshell.AppActivate('Sign in to your account')
@@ -28,6 +56,14 @@ function LoginGitWindows($password)
 }
 
 $global:outputOnly = $true;
+
+function SendKeys($wshell, $val)
+{
+    if (!$global:outputOnly)
+    {
+        $wshell.SendKeys($val);
+    }
+}
 
 function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
 {
@@ -50,22 +86,22 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
     $wshell = New-Object -ComObject wscript.shell;
     $status = $wshell.AppActivate('cmd.exe');
 
-    $wshell.SendKeys($argumentlist)
-    $wshell.SendKeys("{ENTER}")
+    SendKeys $wshell $argumentlist;
+    SendKeys $wshell "{ENTER}";
     
     if ($isinitial)
     {
         start-sleep 2;
-        $wshell.SendKeys("y")
-        $wshell.SendKeys("{ENTER}")
+        SendKeys $wshell "y"
+        SendKeys $wshell "{ENTER}"
     }
 
     if ($argumentlist.contains("-t") -and $cmd.contains("sudo") -and !$isinitial)
     {
-        $wshell.SendKeys("{ENTER}")
+        SendKeys $wshell "{ENTER}"
         start-sleep 2;
-        $wshell.SendKeys($password);
-        $wshell.SendKeys("{ENTER}")
+        SendKeys $wshell $password;
+        SendKeys $wshell "{ENTER}"
     }
 
     if ($cmd.contains("`r"))
@@ -77,16 +113,16 @@ function ExecuteRemoteCommand($ip, $password, $cmd, $sleep, $isInitial)
             add-content "c:\labfiles\setup.sh" $line;
 
             [void]$wshell.AppActivate('cmd.exe');
-            $wshell.SendKeys($line)
-            $wshell.SendKeys("{ENTER}")
+            SendKeys $wshell $line
+            SendKeys $wshell "{ENTER}"
             start-sleep 3;
         }
 
-        $wshell.SendKeys("exit")
-        $wshell.SendKeys("{ENTER}")
+        SendKeys $wshell "exit"
+        SendKeys $wshell "{ENTER}"
     }
 
-    $wshell.SendKeys("{ENTER}")
+    SendKeys $wshell "{ENTER}"
 
     if (!$global:outputOnly)
     {
@@ -595,7 +631,6 @@ cd "c:\labfiles";
 CreateCredFile $azureUsername $azurePassword $azureTenantID $azureSubscriptionID $deploymentId $odlId
 
 . C:\LabFiles\AzureCreds.ps1
-. C:\LabFiles\artifacts\envrionment-setup\automation\HttpHelper.ps1
 
 $userName = $AzureUserName                # READ FROM FILE
 $password = $AzurePassword                # READ FROM FILE
@@ -726,10 +761,12 @@ $item = ConvertTo-Json $jsonItem -Depth 100
 
 CreateARMServiceConnection $orgname "azurecloud" $item $spnId $spnSecret $tenantId $subscriptionId $subscriptionName $projectName
 
+$acrname = "fabmedical$deploymentId";
+
 $item = Get-Content -Raw -Path "$($TemplatesPath)/serviceconnection_aci.json"
 $item = $item.Replace("#ID#", "-1");
 $item = $item.Replace("#NAME#", "Fabmedical ACR")
-$item = $item.Replace("#ACR_SERVER#", "fabmedical$deploymentId")
+$item = $item.Replace("#ACR_SERVER#", $acrname)
 $item = $item.Replace("#RESOURCE_GROUP#", $resourceGroupName)
 $item = $item.Replace("#SPN_ID#", $appId)
 $item = $item.Replace("#SPN_SECRET#", $azurePassword)
@@ -779,6 +816,9 @@ foreach($name in $repoNames)
     git remote add origin $url;
     git push -u origin --all
 }
+
+#load cosmosdb
+LoadCosmosDb;
 
 $ip = (Get-AzPublicIpAddress -resourcegroup $resourcegroupname).IpAddress;
 
@@ -873,7 +913,10 @@ ExecuteRemoteCommand $ip $azurepassword $script 5;
 $script = "`rcd`rcd content-web`rnpm install`rng build";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "``rcd`rcd content-web`rsed -i 's/localhost/$ip/' app.js"
+$script = "`rcd`rcd content-web`rsed -i 's/localhost/$ip/' app.js"
+ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$script = "`rcd`rcd content-api`rsed -i 's/[SHORT_SUFFIX]/$deploymentId/' azure-pipelines.yml"
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
 $script = "`rcd`rcd content-web`rnode ./app.js &";
@@ -885,25 +928,33 @@ ExecuteRemoteCommand $ip $azurepassword $script 5;
 $script = "`rcd`rcd content-web`rdocker image build -t content-web .";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$acrCreds = Get-AzContainerRegistryCredential -ResourceGroupName $resourceGroupName -Name "fabmedical$deploymentId"
-$script = "`rdocker login $orgName.azurecr.io -u $($acrCreds.Username) -p $($acrCreds.Password)";
+$acrCreds = Get-AzContainerRegistryCredential -ResourceGroupName $resourceGroupName -Name $acrName
+$script = "`rdocker login $acrName.azurecr.io -u $($acrCreds.Username) -p $($acrCreds.Password)";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "`rdocker image tag content-web $orgName.azurecr.io/content-web";
+$script = "`rdocker image tag content-web $acrName.azurecr.io/content-web";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "`rdocker image tag content-api $orgName.azurecr.io/content-api";
+$script = "`rdocker image tag content-api $acrName.azurecr.io/content-api";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "`rdocker image push $orgName.azurecr.io/content-web";
+$script = "`rdocker image push $acrName.azurecr.io/content-web";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$script = "`rdocker image push $orgName.azurecr.io/content-api";
+$script = "`rdocker image push $acrName.azurecr.io/content-api";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
+
+$line = "echo y | plink.exe -t -ssh -l adminfabmedical -pw `"$password`" $ip";
+add-content "c:\labfiles\login.bat" $line;
 
 $line = "echo y | plink.exe -t -ssh -l adminfabmedical -pw `"$password`" -m `"c:\labfiles\setup.sh`" $ip";
 add-content "c:\labfiles\setup.bat" $line;
 
+#must do twice...
+& c:\labfiles\login.bat
+& c:\labfiles\login.bat
+
+#run the script...
 & c:\labfiles\setup.bat
 
 sleep 20
