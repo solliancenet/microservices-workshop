@@ -460,11 +460,6 @@
                       "id": "[concat(variables('cosmosName'), '-', parameters('CosmosLocation'))]",
                       "failoverPriority": 0,
                       "locationName": "[parameters('CosmosLocation')]"
-                  },
-                  {
-                      "id": "[concat(variables('cosmosName'), '-', parameters('CosmosPairedLocation'))]",
-                      "failoverPriority": 1,
-                      "locationName": "[parameters('CosmosPairedLocation')]"
                   }
               ],
               "enableMultipleWriteLocations": false,
