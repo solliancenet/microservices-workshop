@@ -752,11 +752,19 @@ if (!$token)
     Set-content "devopstoken" $token;
 }
 
+#this allows us to get it back out later much more easily in cloud shell.
+$line = "https://$($username):$($token)@dev.azure.com/fabmedical-$deploymentId/fabmedical/_git/"
+set-content "devopstoken" $line;
+$storageAccount = Get-AzStorageAccount -ResourceGroupName $resourceGroupName -Name "fabmedical$($deploymentId)diag"
+$ctx = $storageAccount.Context
+Set-AzStorageBlobContent -File "devopstoken" -Container "devops" -Blob "devopstoken" -Context $ctx 
+
 foreach($name in $repoNames)
 {
     $repo = $repos | where {$_.Name -eq $name};
 
     cd "C:\labfiles\microservices-workshop\artifacts\$name"
+    
     git init
     git add .
     git commit -m "Initial Commit"
@@ -791,7 +799,22 @@ ExecuteRemoteCommand $ip $azurepassword $script 10;
 $script = "sudo apt-get --assume-yes update && sudo apt-get --assume-yes install -y docker-ce nodejs mongodb-clients"
 ExecuteRemoteCommand $ip $azurepassword $script 75;
 
-$script = "sudo apt-get --assume-yes upgrade";
+$script = "echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo apt-get update";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo apt-get install helm";
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -"
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo apt-get install apt-transport-https --yes"
+ExecuteRemoteCommand $ip $azurepassword $script 10;
+
+$script = "sudo apt-get install apt-transport-https --yes"
 ExecuteRemoteCommand $ip $azurepassword $script 10;
 
 $script = "sudo curl -L `"https://github.com/docker/compose/releases/download/1.21.2/docker-compose-Linux-x86_64`" -o /usr/local/bin/docker-compose"
