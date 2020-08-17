@@ -724,7 +724,7 @@ CreateARMServiceConnection $orgname "azurecloud" $item $spnId $spnSecret $tenant
 $item = Get-Content -Raw -Path "$($TemplatesPath)/serviceconnection_aci.json"
 $item = $item.Replace("#ID#", "-1");
 $item = $item.Replace("#NAME#", "Fabmedical ACR")
-$item = $item.Replace("#ACR_SERVER#", $orgName)
+$item = $item.Replace("#ACR_SERVER#", "fabmedical$deploymentId")
 $item = $item.Replace("#RESOURCE_GROUP#", $resourceGroupName)
 $item = $item.Replace("#SPN_ID#", $appId)
 $item = $item.Replace("#SPN_SECRET#", $azurePassword)
