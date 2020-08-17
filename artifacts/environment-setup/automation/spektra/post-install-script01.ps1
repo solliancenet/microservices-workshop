@@ -198,7 +198,7 @@ function LoginDevOps($username, $password)
 
     $html = DoPost "https://app.vssps.visualstudio.com/_signedin" $post;
 
-    if ($global:location.contains("aex.dev.azure.com"))
+    if ($global:location -and $global:location.contains("aex.dev.azure.com"))
     {
         $alias = $username.split("@")[0];
         FirstLoginDevOps $alias $username;
@@ -237,6 +237,10 @@ function LoginDevOps($username, $password)
         {
             $azureCookies.add($key,$global:urlcookies["app.vssps.visualstudio.com"][$key]);
         }
+    }
+
+    foreach($key in $global:urlcookies["app.vssps.visualstudio.com"].keys)
+    {
 
         if ($azureCookies.containskey($key))
         {
@@ -591,6 +595,7 @@ cd "c:\labfiles";
 CreateCredFile $azureUsername $azurePassword $azureTenantID $azureSubscriptionID $deploymentId $odlId
 
 . C:\LabFiles\AzureCreds.ps1
+. C:\LabFiles\artifacts\envrionment-setup\automation\HttpHelper.ps1
 
 $userName = $AzureUserName                # READ FROM FILE
 $password = $AzurePassword                # READ FROM FILE
@@ -753,11 +758,12 @@ if (!$token)
 }
 
 #this allows us to get it back out later much more easily in cloud shell.
-$line = "https://$($username):$($token)@dev.azure.com/fabmedical-$deploymentId/fabmedical/_git/"
-set-content "devopstoken" $line;
+$line = "https://$($username):$($token)@dev.azure.com/fabmedical-$($deploymentId)/fabmedical/_git/"
+set-content "devopstokenurl" $line;
 $storageAccount = Get-AzStorageAccount -ResourceGroupName $resourceGroupName -Name "fabmedical$($deploymentId)diag"
 $ctx = $storageAccount.Context
-Set-AzStorageBlobContent -File "devopstoken" -Container "devops" -Blob "devopstoken" -Context $ctx 
+New-AzStorageContainer -Name "devops" -Context $ctx
+Set-AzStorageBlobContent -File "devopstokenurl" -Container "devops" -Blob "devopstoken" -Context $ctx 
 
 foreach($name in $repoNames)
 {
@@ -769,7 +775,7 @@ foreach($name in $repoNames)
     git add .
     git commit -m "Initial Commit"
     $url = $repo.remoteurl
-    $url = "https://$($username):$($token)@dev.azure.com/fabmedical-$deploymentId/fabmedical/_git/$name";
+    $url = "https://$($username):$($token)@dev.azure.com/fabmedical-$($deploymentId)/fabmedical/_git/$name";
     git remote add origin $url;
     git push -u origin --all
 }
@@ -799,7 +805,7 @@ ExecuteRemoteCommand $ip $azurepassword $script 10;
 $script = "sudo apt-get --assume-yes update && sudo apt-get --assume-yes install -y docker-ce nodejs mongodb-clients"
 ExecuteRemoteCommand $ip $azurepassword $script 75;
 
-$script = "echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list";
+$script = "echo `"deb https://baltocdn.com/helm/stable/debian/ all main`" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list";
 ExecuteRemoteCommand $ip $azurepassword $script 10;
 
 $script = "sudo apt-get update";
@@ -847,7 +853,7 @@ ExecuteRemoteCommand $ip $azurepassword $script 5;
 foreach($repo in $repos)
 {
   $name = $repo.name;
-  $script = "git clone https://$($username):$($token)@dev.azure.com/fabmedical-$deploymentId/fabmedical/_git/$name";
+  $script = "git clone https://$($username):$($token)@dev.azure.com/fabmedical-$($deploymentId)/fabmedical/_git/$name";
   ExecuteRemoteCommand $ip $azurepassword $script 10;
 }
 
@@ -879,7 +885,7 @@ ExecuteRemoteCommand $ip $azurepassword $script 5;
 $script = "`rcd`rcd content-web`rdocker image build -t content-web .";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
-$acrCreds = Get-AzContainerRegistryCredential -ResourceGroupName $resouceGroupName -Name "$orgName.azurecr.io"
+$acrCreds = Get-AzContainerRegistryCredential -ResourceGroupName $resourceGroupName -Name "fabmedical$deploymentId"
 $script = "`rdocker login $orgName.azurecr.io -u $($acrCreds.Username) -p $($acrCreds.Password)";
 ExecuteRemoteCommand $ip $azurepassword $script 5;
 
