@@ -128,7 +128,7 @@
           "kubernetesAgentOsType": "Linux",
           "kubernetesAgentOsDiskSizeGB": 0,
           "kubernetesAgentCount": 2,
-          "kubernetesAgentVmSize": "Standard_D2_v2",
+          "kubernetesAgentVmSize": "Standard_D3_v2",
           "kubernetesNetworkProfilePlugin": "kubenet",
           "kubernetesRBACEnabled": true,
           "logAnalyticsName": "[concat('fabmedical-', parameters('Suffix'))]",

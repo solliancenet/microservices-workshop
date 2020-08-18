@@ -19,6 +19,47 @@ Param (
   $deploymentId
 )
 
+function InstallMongoDriver()
+{
+    #TODO
+}
+
+function LoadCosmosDbViaMongo($cosmosConnection)
+{
+    $databaseName = "contentdb";
+    $partitionkey = "";
+    $cosmosDbContext = New-CosmosDbContext -Account "fabmedical$deploymentid" -Database $databaseName -ResourceGroup $resourceGroupName
+    New-CosmosDbDatabase -Context $cosmosDbContext -Id $databaseName
+    $collectionName = "sessions";
+    New-CosmosDbCollection -Context $cosmosDbContext -Id $collectionName -PartitionKey $partitionkey -OfferThroughput 400 -Database $databaseName
+    $collectionName = "speaker";
+    New-CosmosDbCollection -Context $cosmosDbContext -Id $collectionName -PartitionKey $partitionkey -OfferThroughput 400 -Database $databaseName
+
+    $mongoDriverPath = "c:\Program Files (x86)\MongoDB\CSharpDriver 1.7"
+    Add-Type -Path "$($mongoDriverPath)\MongoDB.Bson.dll"
+    Add-Type -Path "$($mongoDriverPath)\MongoDB.Driver.dll"
+
+    $db = [MongoDB.Driver.MongoDatabase]::Create('mongodb://localhost/contentdb');
+
+    $strJson = Get-Content "c:\labfiles\microservices-workshop\artifacts\content-inti\json\sessions.json"
+    $json = ConvertFrom-Json $strJson;    
+    $coll = $db['sessions'];
+    
+    foreach($j in $json)
+    {
+        $coll.Insert( $j)
+    }
+    
+    $strJson = Get-Content "c:\labfiles\microservices-workshop\artifacts\content-inti\json\speakers.json"
+    $json = ConvertFrom-Json $strJson;    
+    $coll = $db['speaker'];
+    
+    foreach($j in $json)
+    {
+        $coll.Insert($j)
+    }
+}
+
 function LoadCosmosDb()
 {
     $databaseName = "contentdb";
@@ -820,7 +861,12 @@ foreach($name in $repoNames)
 #load cosmosdb
 LoadCosmosDb;
 
-$ip = (Get-AzPublicIpAddress -resourcegroup $resourcegroupname).IpAddress;
+#set the ip DNS name for ingress steps.
+$ipAddress = Get-AzPublicIpAddress -resourcegroup $resourcegroupname
+$ip = $ipAddress.IpAddress;
+
+$ipAddress.DnsSettings.DomainNameLabel = "fabmedical-$deploymentId-ingress"
+Set-AzPublicIpAddress -PublicIpAddress $ipAddress
 
 #inital login...
 $script = "";
